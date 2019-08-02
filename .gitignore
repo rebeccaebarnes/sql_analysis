@@ -1,0 +1,4 @@
+sql_config
+sql_secrets
+.ipynb_checkpoints
+__pycache__
