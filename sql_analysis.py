@@ -543,7 +543,7 @@ class SQLUnitTest:
                 # Assess perc diff
                 assessment = self._assess_priority_review(col, perc_col)
                 if assessment:
-                    self._priority_review[col] = assessment
+                    self._priority_review[self.test_field + '_' + col] = assessment
 
             except Exception as e:
                 print('EXCEPTION:', e)
