@@ -468,7 +468,7 @@ class SQLUnitTest:
         run_test: Complete the equality comparison between the '_count' columns.
         compare_ids: Complete a comparison of counts and id fields.
     """
-    def __init__(self, data, comparison_names, test_field='count', save_location=None):
+    def __init__(self, data, comparison_names, test_field='count', save_location=None, summary_field=None):
         # Test input variables
         test_input_SQLUnitTest(data, comparison_names, test_field, save_location)
 
@@ -477,7 +477,9 @@ class SQLUnitTest:
         self.comparison_names = comparison_names
         self.test_field = test_field
         self.save_location = save_location
+        self.summary_field = summary_field
         self._results = self.data.copy()
+        self._summary = pd.DataFrame([])
         self._exceptions = {}
         self._priority_review = {}
         self._today_date = datetime.today().strftime('%y%m%d')
@@ -544,8 +546,20 @@ class SQLUnitTest:
                 assessment = self._assess_priority_review(col, perc_col)
                 if assessment:
                     self._priority_review[self.test_field + '_' + col] = assessment
-
-            except Exception as e:
+                # Assign to summary
+                if self.summary_field:
+                    if self._summary.empty:
+                        self._summary = self._results[[self.summary_field, perc_col]]
+                        self._summary.rename(columns={perc_col: self.test_field + '_' + col},
+                                             inplace=True)
+                    else:
+                        summary_col = self._results[[self.summary_field, perc_col]]
+                        self._summary.rename(columns={perc_col: self.test_field + '_' + col},
+                                             inplace=True)
+                        self._summary = self._summary.merge(summary_col,
+                                                            how='outer',
+                                                            on=self.summary_field)
+            except ValueError as e:
                 print('EXCEPTION:', e)
                 self._exceptions[self.test_field + '_' + col] = e
 
