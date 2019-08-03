@@ -9,7 +9,7 @@ The module contains two primary classes SQLGatherData and SQLUnitTest.
 
 **SQLGatherData** allows generation of SQL query strings and gathering of data to complete one of five different tests `count`, `low_distinct`, `high_distinct`, `numeric`, and `id_check`. It also allows for use of custom query strings.
 
-**SQLUnitTest** completes the five tests referenced above, by calculating actual differences and percentage differences between table values. Differences can be flagged for "priority review" to indicate fields that show large differences in values. A summary of results can also be collected and displayed. 
+**SQLUnitTest** completes the five tests referenced above, by calculating actual differences and percentage differences between table values. Differences can be flagged for "priority review" to indicate fields that show large differences in values. A summary of results can also be collected and displayed.
 
 Basic database queries can also be completed via the use of **sql_query**.
 
@@ -21,3 +21,6 @@ This module utilizes:
 - [SQLAlchemy](https://www.sqlalchemy.org/)
 - [pandas](https://pandas.pydata.org/)
 - [NumPy](https://numpy.org/)
+
+## Acknowledgements
+Testing is completed using the [PostgreSQL DVD Rental](http://www.postgresqltutorial.com/postgresql-sample-database/) sample database. And the Parch and Posey database contained in [Udacity](https://www.udacity.com/)'s [SQL for Data Analysis](https://www.udacity.com/course/sql-for-data-analysis--ud198) course.
