@@ -3,12 +3,11 @@ import os
 from time import time
 import pandas as pd
 import numpy as np
-import sql_config as sqlc
+import sql_config_example as sqlc
 
 
-DB_ENV = {'dev': sqlc.ENGINE_DEV,
-          'prod': sqlc.ENGINE_PROD,
-          'ss': sqlc.ENGINE_SS}
+DB_ENV = {'pp': sqlc.ENGINE_PP,
+          'dvd': sqlc.ENGINE_DVD}
 
 def sql_query(query_str, engine):
     '''
