@@ -446,7 +446,7 @@ class SQLUnitTest:
                               Percentage difference between comparison fields that
                               flags the field for priority assessment.
         """
-        print('Commencing test for {} {}...'.format(self.test_type, self.comparison_fields[0]))
+        print('Commencing {} test for {}...'.format(self.test_type, self.comparison_fields[0]))
         self._results = self.gather_data(test_string=test_string)
         target_col = self.table_alias[0] + '_count'
         test_field = self.comparison_fields[0]
