@@ -95,7 +95,8 @@ def test_input_SQLUnitTest(data, comparison_names, test_field, save_location):
                 "\\ to indicate sub-directories."
                 )
 
-def test_input_SQLGatherData(comparison_fields, groupby_fields, table_names, table_alias, test_type):
+def test_input_SQLGatherData(comparison_fields, groupby_fields,
+                             table_names, table_alias, test_type):
     """TO DO: Add docstring"""
     # confirm minimum two fields
     if len(comparison_fields) < 2:
@@ -128,9 +129,9 @@ def test_input_SQLGatherData(comparison_fields, groupby_fields, table_names, tab
                 "Only two fields can be compared at a time for test type 'id_check'."
                 )
 
-class SQLGatherData:
+class SQLUnitTest:
     """
-    Complete SQL query for specified tests between database tables.
+    Complete SQL queries and equality comparisons between database tables.
 
     inputs:
         comparison_fields: (list-like) Name of field to be queried for each table.
@@ -139,29 +140,42 @@ class SQLGatherData:
                         Field order should be consistent with that of 'comparison_fields'.
         table_names: (list-like) Name of each database table to be queried.
                      Name order should be consistent with that of 'comparison_fields'.
-        table_alias: (list-like) Alias for each database table to be queried.
+        table_alias: (list-like) Alias string for each database table to be queried.
+                     Each alias must be a single word containing no '_'.
                      Alias order should be consistent with that of 'comparison_fields'.
         db: (str) Server alias, as specified by DB_ENG.
-        test_type: (str) One of 'count', 'low_distinct', 'high_distinct', 'numeric', 'id_check'.
+        test_type: {'count', 'low_distinct', 'high_distinct', 'numeric', 'id_check'}.
+        save_location: (optional, str) Folder directory for saving.
 
     methods:
         create_test_string: Create SQL query string from specified inputs.
         gather_data: Complete database query based on specified SQL string.
+        run_test: Complete the equality comparison between the '_count' columns.
+        save_results: Create folder directory as needed and save results to this location.
+        compare_ids: Complete a comparison of counts and id fields.
     """
-    def __init__(self, comparison_fields, groupby_fields,
-                 table_names, table_alias, db_server, test_type):
-        test_input_SQLGatherData(comparison_fields,
-                                 groupby_fields,
-                                 table_names,
-                                 table_alias,
-                                 test_type)
+    def __init__(self, comparison_fields, groupby_fields, table_names,
+                 table_alias, db_server, test_type, save_location=None):
+        # Test input variables
+        # TODO: Manage test_input_SQLUnitTest(save_location) & SQLGatherData test
+
+        # Convert SQL to DataFrame as needed
+
         self.comparison_fields = comparison_fields
         self.groupby_fields = groupby_fields
         self.table_names = table_names
         self.table_alias = table_alias
         self.db_server = db_server
         self.test_type = test_type
+        self.save_location = save_location
         self._test_str = None
+        self._results = None
+        self._summary = pd.DataFrame([])
+        self._exceptions = {}
+        self._priority_review = {}
+        self._today_date = datetime.today().strftime('%y%m%d')
+        self._alt_date = datetime.today().strftime('%d-%b-%y')
+
     def _create_count_string(self):
         """TO DO: Add docstring"""
         test_str = ""
@@ -288,7 +302,7 @@ class SQLGatherData:
         If not, creates and stores SQL string based on values stored on instantiation.
 
         inputs:
-            test_string: (optional, str, default=None) Complete SQL query string.
+            test_string: (optional, str) Custom SQL query string.
         """
         # Assign str to self._test_str
         if test_string:
@@ -321,7 +335,7 @@ class SQLGatherData:
             test_str += initial_select_state.format(target_alias=self.table_alias[0],
                                                     target_compare=self.comparison_fields[0],
                                                     target_groupby=self.groupby_fields[0])
-                                                    
+
         table_select = ", {alias}.row_count AS {alias}_count"
         for alias in self.table_alias[1:]:
             test_str += table_select.format(alias=alias)
@@ -366,7 +380,7 @@ class SQLGatherData:
         If not, utilizes and constructs the string based on values stored on instantiation.
 
         inputs:
-            test_string: (optional, str, default=None) Complete SQL query string.
+            test_string: (optional, str) Custom SQL query string.
 
         returns:
             result: If 'test_type' is 'id_check', a tuple of Pandas DataFrames.
@@ -386,54 +400,18 @@ class SQLGatherData:
         print('Query for {} complete.\n'.format(self.comparison_fields[0]))
         return result
 
-class SQLUnitTest:
-    """
-    Complete equality comparisons between DataFrame columns.
-
-    inputs:
-        data: (Pandas DataFrame) Comparison columns must end with '_count'.
-        comparison_names: (list-like) Prefixes of the comparison columns.
-                          All column names except the first must contain one of
-                          these values.
-        test_field: (optional, str, default='count') Name of the field that is
-                    captured in the DataFrame. Is used to create the file name
-                    when saving the results.
-        save_location: (optional, str, default=None) Folder directory for saving.
-
-    methods:
-        save_results: Create folder directory as needed and save results to this location.
-        run_test: Complete the equality comparison between the '_count' columns.
-        compare_ids: Complete a comparison of counts and id fields.
-    """
-    def __init__(self, data, comparison_names, test_field='count', save_location=None, summary_field=None):
-        # Test input variables
-        test_input_SQLUnitTest(data, comparison_names, test_field, save_location)
-
-        # Convert SQL to DataFrame as needed
-        self.data = data
-        self.comparison_names = comparison_names
-        self.test_field = test_field
-        self.save_location = save_location
-        self.summary_field = summary_field
-        self._results = self.data.copy()
-        self._summary = pd.DataFrame([])
-        self._exceptions = {}
-        self._priority_review = {}
-        self._today_date = datetime.today().strftime('%y%m%d')
-        self._alt_date = datetime.today().strftime('%d-%b-%y')
-
-    def _assess_priority_review(self, comparison_col, assess_col):
+    def _assess_priority_review(self, comparison_col, assess_col, review_threshold):
         """TO DO: Add docstring"""
         assessment = None
         if self._results[assess_col].mean() == 100:
-            assessment = 'MISSING VALUE for ' + comparison_col + '_' + self.test_field
+            assessment = 'MISSING VALUE for ' + comparison_col + '_' + self.comparison_fields[0]
             print(assessment)
 
         is_not_missing = self._results[assess_col] != 100
         not_missing_median = self._results.loc[is_not_missing, assess_col].abs().median()
-        if not_missing_median > 2:
+        if not_missing_median > review_threshold:
             assessment = 'PRIORITY REVIEW on ' + comparison_col + '_' \
-                         + self.test_field + ': ' + str(not_missing_median)
+                         + self.comparison_fields[0] + ': ' + str(not_missing_median)
             print(assessment)
         return assessment
 
@@ -448,28 +426,34 @@ class SQLUnitTest:
         folder_name = self.save_location.strip('/') + '/' + self._today_date
         if not os.path.exists(folder_name):
             os.makedirs(folder_name)
-        file_name = '/' + self.test_field + '.csv'
+        file_name = '/' + self.comparison_fields[0] + '.csv'
         self._results.to_csv(folder_name + file_name, index=index)
 
-    def run_test(self):
+    def run_test(self, test_string=None, review_threshold=2):
         """
-        Run equality comparisons between the columns specified by the stored
-        comparison_names with the suffix '_count'.
+        Run equality comparisons between the comparison_fields.
         If row values are not equal, the absolute difference and percentage
         difference is calculated.
         Prints and stores exceptions as they are encountered.
-        Prints and stores fields flagged for priority assessment (average difference > 5%).
+        Prints and stores fields flagged for priority assessment.
         Stores results in '_results'.
         Saves results if save_location is stored.
+
+        Inputs:
+            test_string: (str, optional) Custom SQL query string.
+            review_threshold: (numeric, optional, default=2)
+                              Percentage difference between comparison fields that
+                              flags the field for priority assessment.
         """
-        print('Commencing test for {}...'.format(self.test_field))
-        self._results = self.data.copy()
-        target_col = self.comparison_names[0] + '_count'
-        for col in self.comparison_names[1:]:
+        print('Commencing test for {}...'.format(self.comparison_fields[0]))
+        self._results = self.gather_data(test_string=test_string)
+        target_col = self.table_alias[0] + '_count'
+        test_field = self.comparison_fields[0]
+        for col in self.table_alias[1:]:
             try:
                 col_name = col + '_count'
                 # Get difference in counts
-                compare_col = self.comparison_names[0] + '_minus_' + col
+                compare_col = self.table_alias[0] + '_minus_' + col
                 self._results[compare_col] = self._results[target_col] - self._results[col_name]
 
                 # Get perc diff
@@ -480,25 +464,26 @@ class SQLUnitTest:
                 round((self._results[target_col] - self._results[col_name])\
                 /self._results[target_col] * 100, 2)
                 # Assess perc diff
-                assessment = self._assess_priority_review(col, perc_col)
+                assessment = self._assess_priority_review(col, perc_col,
+                                                          review_threshold=review_threshold)
                 if assessment:
-                    self._priority_review[self.test_field + '_' + col] = assessment
+                    self._priority_review[test_field + '_' + col] = assessment
                 # Assign to summary
-                if self.summary_field:
-                    if self._summary.empty:
-                        self._summary = self._results[[self.summary_field, perc_col]].copy()
-                        self._summary.rename(columns={perc_col: self.test_field + '_' + col},
-                                             inplace=True)
-                    else:
-                        summary_col = self._results[[self.summary_field, perc_col]].copy()
-                        summary_col.rename(columns={perc_col: self.test_field + '_' + col},
-                                           inplace=True)
-                        self._summary = self._summary.merge(summary_col,
-                                                            how='outer',
-                                                            on=self.summary_field)
+                summary_field = self.groupby_fields[0]
+                if self._summary.empty:
+                    self._summary = self._results[[summary_field, perc_col]].copy()
+                    self._summary.rename(columns={perc_col: test_field + '_' + col},
+                                         inplace=True)
+                else:
+                    summary_col = self._results[[summary_field, perc_col]].copy()
+                    summary_col.rename(columns={perc_col: test_field + '_' + col},
+                                       inplace=True)
+                    self._summary = self._summary.merge(summary_col,
+                                                        how='outer',
+                                                        on=summary_field)
             except Exception as e:
                 print('EXCEPTION:', e)
-                self._exceptions[self.test_field + '_' + col] = e
+                self._exceptions[test_field + '_' + col] = e
 
         # Add date
         if 'date' not in self._results.columns:
@@ -507,77 +492,47 @@ class SQLUnitTest:
         # Check save results
         if self.save_location:
             self.save_results()
-        print('Test for {} complete.\n'.format(self.test_field))
+        print('Test for {} complete.\n'.format(test_field))
 
-    def compare_ids(self, target_df, source_df, join_col, id_col):
+    def compare_ids(self, table_alias, target_df, source_df):
         """
         Complete a count comparison based on stored data and combine with a comparison of IDs.
         Stores results in '_results'.
         Saves results if save_location is stored.
+        TODO: Add more details about what is needed for successful function use.
 
         inputs:
+            table_alias: (list-like) Two table alias to compare.
+                         "Target" table must be listed first.
             target_df: (Pandas DataFrame) The "target" table data.
             source_df: (Pandas DataFrame) The "source" table data.
-            join_col: (str or list-like) If str, this name must appear in each DataFrame.
-                      If list, order of names must correspond to columns in the target_df and
-                      source_df.
-            id_col: (str or list-like) If str, this name must appear in each DataFrame.
-                      If list, order of names must correspond to columns in the target_df and
-                      source_df.
         """
         # Test comparison names
-        if len(self.comparison_names) != 2:
+        if len(table_alias) != 2:
             raise ValueError(
                 "For ID comparison, only two values in 'comparison_names' are accepted."
                 )
 
-        # Test and manage join_col
-        if not isinstance(join_col, (str, list, tuple)):
-            raise TypeError(
-                "'join_col' must be str or list-like."
-                )
+        target_col = count_col = table_alias[0] + '_' + self.comparison_fields[0]
+        source_col = table_alias[1] + '_' + self.comparison_fields[0]
 
-        if isinstance(join_col, str):
-            target_col = source_col = count_col = join_col
-        else:
-            target_col = join_col[0]
-            source_col = join_col[1]
-            count_col = join_col[2]
+        for col, df in zip((target_col, source_col, count_col),
+                           (target_df, source_df, self._results)):
+            if col not in df.columns:
+                raise ValueError(
+                    "Each column name in 'table_alias' must be in the respective DataFrame."
+                    "{} was not found.".format(col)
+                    )
 
-            for col, df in zip((target_col, source_col, count_col),
-                               (target_df, source_df, self.data)):
-                if col not in df.columns:
-                    raise ValueError(
-                        "Each column name in 'join_col' must be in the respective DataFrame."
-                        "{} is not in {}.".format(col, df.__name__)
-                        )
-        # Test and manage id_col
-        if not isinstance(id_col, (str, list, tuple)):
-            raise TypeError("'id_col' must be str or list-like.")
-
-        if isinstance(id_col, str):
-            target_id = source_id = id_col
-        else:
-            target_id = id_col[0]
-            source_id = id_col[1]
-
-            for col, df in zip((target_id, source_id),
-                               (target_df, source_df)):
-                if col not in df.columns:
-                    raise ValueError(
-                        "Each column name in 'id_col' must be in the respective DataFrame."
-                        "{} is not in {}.".format(col, df.__name__)
-                        )
-
-        # Get full comparison df
-        self.run_test()
+        target_id = self.groupby_fields[0]
+        source_id = self.groupby_fields[self.table_alias.index(source_col)]
 
         self._results.index = self._results[count_col]
         self._results.drop(count_col, axis=1, inplace=True)
 
         # Compare ids
-        target_in_source_name = self.comparison_names[0] + '_missing_in_' + self.comparison_names[1]
-        source_in_target_name = self.comparison_names[1] + '_missing_in_' + self.comparison_names[0]
+        target_in_source_name = table_alias[0] + '_missing_in_' + table_alias[1]
+        source_in_target_name = table_alias[1] + '_missing_in_' + table_alias[0]
         self._results[target_in_source_name] = np.nan
         self._results[source_in_target_name] = np.nan
         for ind in self._results.index:
@@ -602,7 +557,6 @@ class SQLUnitTest:
 
         # Check save results
         if self.save_location:
-            self.test_field = 'missing_ids'
             self.save_results(index=True)
 
     def summarize_results(self, summary_type='both', save='both'):
@@ -610,8 +564,9 @@ class SQLUnitTest:
         # TODO: create tests for input and checking summary_field
         # TODO: manage low_distinct tests
         # TODO: manage unshared groupby fields
-        self._summary.index = self._summary[self.summary_field]
-        self._summary.drop(self.summary_field, axis=1, inplace=True)
+        summary_field = self.groupby_fields[0]
+        self._summary.index = self._summary[summary_field]
+        self._summary.drop(summary_field, axis=1, inplace=True)
         self._summary = self._summary.transpose()
 
         if save in ('data', 'both'):
@@ -636,7 +591,7 @@ class SQLUnitTest:
             if save in ('image', 'both'):
                 plt.savefig(self.save_location + '/summary_img_' + self._today_date + '.png')
 
-            return self._summary
+        return self._summary
 
 class MetricCalc():
     '''docstring'''
