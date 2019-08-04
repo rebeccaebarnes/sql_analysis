@@ -21,20 +21,22 @@ If we had a table `rental_view` and another `alt_rental_view`, we may wish to co
 We could view each table:
 
 **rental_view**
-![rental view][img/rental_view.PNG]
+
+![rental view](img/rental_view.PNG)
 
 **alt_rental_view**
-![alt rental view][img/alt_rental_view.PNG]
+
+![alt rental view](img/alt_rental_view.PNG)
 
 In this case, the field that can be used to group the data is `ss_dt` for `rental_view` and `ss_date` for `alt_rental_view`.
 
 Using `SQLGatherData` we can specify the field and table information, generate the SQL and get the counts for the tables. (Note: Comparisons are not limited to only two tables, additional comparison tables can be added in the tuples)
 
-![count data][img/count_gather.PNG]
+![count data](img/count_gather.PNG)
 
 Using `SQLUnitTest` we can complete the comparison between the fields, with a print out that flags field differences that are above a certain threshold.
 
-![count test][img/count_test.PNG]
+![count test](img/count_test.PNG)
 
 ## Setup
 The files `sql_secrets_example.py` and `sql_config_example.py` provide examples of how the SQLAlchemy engines can be configured. These files should be customized for personal use, and the variable `DB_ENG` in `sql_analysis.py` modified to retrieve the engines.
