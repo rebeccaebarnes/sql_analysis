@@ -377,7 +377,7 @@ class SQLUnitTest:
     def gather_data(self, test_string=None):
         """
         Complete query of database. If a test_string is provided, utilizes this string.
-        If not, utilizes and constructs the string based on values stored on instantiation.
+        If not,constructs and utilizes the string based on values stored on instantiation.
 
         inputs:
             test_string: (optional, str) Custom SQL query string.
@@ -495,25 +495,32 @@ class SQLUnitTest:
             self.save_results()
         print('Test for {} complete.\n'.format(test_field))
 
-    def compare_ids(self, table_alias, target_df, source_df):
+    def compare_ids(self, table_alias, id_fields):
         """
         Complete a count comparison based on stored data and combine with a comparison of IDs.
         Stores results in '_results'.
         Saves results if save_location is stored.
-        TODO: Add more details about what is needed for successful function use.
 
         inputs:
             table_alias: (list-like) Two table alias to compare.
                          "Target" table must be listed first.
-            target_df: (Pandas DataFrame) The "target" table data.
-            source_df: (Pandas DataFrame) The "source" table data.
+            id_fields: (list-like) Names of ID fields to compare.
+                       "Target" table field must be listed first.
         """
         # Test comparison names
         if len(table_alias) != 2:
             raise ValueError(
                 "For ID comparison, only two values in 'comparison_names' are accepted."
                 )
+        # Update for test type
+        self.test_type = 'id_check'
+        source_position = self.table_alias.index(table_alias[1])
+        self.comparison_fields = id_fields
+        self.groupby_fields = (self.groupby_fields[0], self.groupby_fields[source_position])
+        self.table_names = (self.table_names[0], self.table_names[source_position])
+        self.table_alias = table_alias
 
+        target_df, source_df = self.gather_data()
         target_col = count_col = table_alias[0] + '_' + self.comparison_fields[0]
         source_col = table_alias[1] + '_' + self.comparison_fields[0]
 
@@ -526,7 +533,7 @@ class SQLUnitTest:
                     )
 
         target_id = self.groupby_fields[0]
-        source_id = self.groupby_fields[self.table_alias.index(source_col)]
+        source_id = self.groupby_fields[1]
 
         self._results.index = self._results[count_col]
         self._results.drop(count_col, axis=1, inplace=True)
