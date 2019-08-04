@@ -3,6 +3,8 @@ import os
 from time import time
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 import sql_config_example as sqlc
 
 
@@ -558,7 +560,7 @@ class SQLUnitTest:
                         self._summary = self._summary.merge(summary_col,
                                                             how='outer',
                                                             on=self.summary_field)
-            except ValueError as e:
+            except Exception as e:
                 print('EXCEPTION:', e)
                 self._exceptions[self.test_field + '_' + col] = e
 
@@ -666,6 +668,37 @@ class SQLUnitTest:
         if self.save_location:
             self.test_field = 'missing_ids'
             self.save_results(index=True)
+
+    def summarize_results(self, summary_type='both', save='both'):
+        """TODO: Add docstring"""
+        # TODO: create tests for input and checking summary_field
+        self._summary.index = self._summary[self.summary_field]
+        self._summary.drop(self.summary_field, axis=1, inplace=True)
+        self._summary = self._summary.transpose()
+
+        if save in ('data', 'both'):
+            self._summary.to_csv(self.save_location + '/summary_' + self._today_date + '.csv')
+
+        if summary_type in ('image', 'both'):
+            palette = sns.diverging_palette(30, 230, s=99, l=60, n=15)
+            plt.figure(figsize=(self._summary.shape[1] * 1.25, self._summary.shape[0]))
+            ax = sns.heatmap(self._summary,
+                             vmin=-30,
+                             vmax=30,
+                             cmap=palette,
+                             center=0,
+                             annot=True,
+                             annot_kws={'fontsize': 12},
+                             linewidths=1)
+            ax.xaxis.tick_top()
+            ax.tick_params(axis='both', which='both', length=0, rotation=0, labelsize=12)
+            plt.xlabel('')
+            plt.show()
+
+            if save in ('image', 'both'):
+                plt.savefig(self.save_location + '/summary_img_' + self._today_date + '.png')
+
+            return self._summary
 
 class MetricCalc():
     '''docstring'''
