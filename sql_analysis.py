@@ -180,8 +180,7 @@ class SQLGatherData:
         for alias, groupby_field, table in zip(self.table_alias[1:],
                                                self.groupby_fields[1:],
                                                self.table_names[1:]):
-            table_cte = table_cte.format(alias=alias, groupby=groupby_field, table=table)
-            test_str += table_cte
+            test_str += table_cte.format(alias=alias, groupby=groupby_field, table=table)
 
         # Create SELECT statement
         initial_select_state = \
@@ -233,11 +232,10 @@ class SQLGatherData:
                                                               self.groupby_fields[1:],
                                                               self.comparison_fields[1:],
                                                               self.table_names[1:]):
-            table_cte = table_cte.format(alias=alias,
+            test_str += table_cte.format(alias=alias,
                                          groupby=groupby_field,
                                          compare=compare_field,
                                          table=table)
-            test_str += table_cte
 
         # Create SELETCT statement
         initial_select_state = " SELECT {target_alias}.{target_groupby}, "\
@@ -297,11 +295,10 @@ class SQLGatherData:
                                                         self.groupby_fields[1:],
                                                         self.comparison_fields[1:],
                                                         self.table_names[1:]):
-            table_cte = table_cte.format(alias=alias,
+            test_str += table_cte.format(alias=alias,
                                          groupby=groupby_field,
                                          compare=compare,
                                          table=table)
-            test_str += table_cte
 
         # Create SELECT statement
         initial_select_state = " SELECT {target_alias}.{target_groupby}, "\
@@ -352,11 +349,10 @@ class SQLGatherData:
                                                         self.groupby_fields[1:],
                                                         self.comparison_fields[1:],
                                                         self.table_names[1:]):
-            table_cte = table_cte.format(alias=alias,
+            test_str += table_cte.format(alias=alias,
                                          groupby=groupby_field,
                                          compare=compare,
                                          table=table)
-            test_str += table_cte
 
         # Create SELECT statement
         initial_select_state = " SELECT {target_alias}.{target_groupby}, "\
@@ -672,6 +668,8 @@ class SQLUnitTest:
     def summarize_results(self, summary_type='both', save='both'):
         """TODO: Add docstring"""
         # TODO: create tests for input and checking summary_field
+        # TODO: manage low_distinct tests
+        # TODO: manage unshared groupby fields
         self._summary.index = self._summary[self.summary_field]
         self._summary.drop(self.summary_field, axis=1, inplace=True)
         self._summary = self._summary.transpose()
