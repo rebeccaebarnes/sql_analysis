@@ -388,7 +388,7 @@ class SQLUnitTest:
         """
         self.create_test_string(test_string)
 
-        print('Commencing {} query...'.format(self.comparison_fields[0]))
+        print('  Commencing {} query...'.format(self.comparison_fields[0]))
         if self.test_type == 'id_check':
             target_df = sql_query(self._test_str[0], self.db_server)
             source_df = sql_query(self._test_str[1], self.db_server)
@@ -397,7 +397,8 @@ class SQLUnitTest:
         else:
             result = sql_query(self._test_str, self.db_server)
 
-        print('Query for {} complete.\n'.format(self.comparison_fields[0]))
+        print('  Query for {} complete.'.format(self.comparison_fields[0]))
+        self._results = result
         return result
 
     def _assess_priority_review(self, comparison_col, assess_col, review_threshold):
@@ -445,7 +446,7 @@ class SQLUnitTest:
                               Percentage difference between comparison fields that
                               flags the field for priority assessment.
         """
-        print('Commencing test for {}...'.format(self.comparison_fields[0]))
+        print('Commencing test for {} {}...'.format(self.test_type, self.comparison_fields[0]))
         self._results = self.gather_data(test_string=test_string)
         target_col = self.table_alias[0] + '_count'
         test_field = self.comparison_fields[0]
