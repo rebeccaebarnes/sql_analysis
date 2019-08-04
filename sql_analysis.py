@@ -541,8 +541,8 @@ class SQLUnitTest:
                 self._results[perc_col] = np.nan
                 count_not_equal = self._results[compare_col] != 0
                 self._results.loc[count_not_equal, perc_col] = \
-                (self._results[target_col] - self._results[col_name])\
-                /self._results[target_col] * 100
+                round((self._results[target_col] - self._results[col_name])\
+                /self._results[target_col] * 100, 2)
                 # Assess perc diff
                 assessment = self._assess_priority_review(col, perc_col)
                 if assessment:
