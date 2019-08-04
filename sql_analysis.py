@@ -548,13 +548,13 @@ class SQLUnitTest:
                 # Assign to summary
                 if self.summary_field:
                     if self._summary.empty:
-                        self._summary = self._results[[self.summary_field, perc_col]]
+                        self._summary = self._results[[self.summary_field, perc_col]].copy()
                         self._summary.rename(columns={perc_col: self.test_field + '_' + col},
                                              inplace=True)
                     else:
-                        summary_col = self._results[[self.summary_field, perc_col]]
-                        self._summary.rename(columns={perc_col: self.test_field + '_' + col},
-                                             inplace=True)
+                        summary_col = self._results[[self.summary_field, perc_col]].copy()
+                        summary_col.rename(columns={perc_col: self.test_field + '_' + col},
+                                           inplace=True)
                         self._summary = self._summary.merge(summary_col,
                                                             how='outer',
                                                             on=self.summary_field)
