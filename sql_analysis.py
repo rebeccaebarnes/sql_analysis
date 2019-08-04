@@ -6,7 +6,7 @@ import numpy as np
 import sql_config_example as sqlc
 
 
-DB_ENV = {'pp': sqlc.ENGINE_PP,
+DB_ENG = {'pp': sqlc.ENGINE_PP,
           'dvd': sqlc.ENGINE_DVD}
 
 def sql_query(query_str, engine):
@@ -15,12 +15,12 @@ def sql_query(query_str, engine):
 
     Params:
         query_str: (str) SQL query string.
-        engine: (str) Server type to use from options of DB_ENV.keys().
+        engine: (str) Server type to use from options of DB_ENG.keys().
 
     Returns:
         Pandas DataFrame.
     '''
-    return pd.read_sql(query_str, DB_ENV[engine])
+    return pd.read_sql(query_str, DB_ENG[engine])
 
 def test_input_SQLUnitTest(data, comparison_names, test_field, save_location):
     """TO DO: Add docstring"""
@@ -42,7 +42,7 @@ def test_input_SQLUnitTest(data, comparison_names, test_field, save_location):
         if data[1] not in ('dev', 'prod', 'ss'):
             raise ValueError(
                 "The second value in the tuple must be one of {}."\
-                             .format(list(DB_ENV.keys()))
+                             .format(list(DB_ENG.keys()))
                 )
     elif not isinstance(data, pd.core.frame.DataFrame):
         raise TypeError(
@@ -139,7 +139,7 @@ class SQLGatherData:
                      Name order should be consistent with that of 'comparison_fields'.
         table_alias: (list-like) Alias for each database table to be queried.
                      Alias order should be consistent with that of 'comparison_fields'.
-        db: (str) Server alias, as specified by DB_ENV.
+        db: (str) Server alias, as specified by DB_ENG.
         test_type: (str) One of 'count', 'low_distinct', 'high_distinct', 'numeric', 'id_check'.
 
     methods:
@@ -1171,13 +1171,13 @@ def data_profile(source_df, save_location=None):
 
     return profile_df
 
-def assess_table(db_env_type, query_str, save_location=None):
+def assess_table(db_eng_type, query_str, save_location=None):
     '''
     Complete an assessment of an Oracle database table, with server defined
-    by DB_ENV, and saves the assesssment to a defined location if specified.
+    by DB_ENG, and saves the assesssment to a defined location if specified.
 
     Params:
-        db_env_type: (str) Key of server type from DB_ENV.
+        db_eng_type: (str) Key of server type from DB_ENG.
         query_str: (str) String for Oracle database query.
         save_location: (str, optional, default=None) File directory and name
                        to save.
@@ -1187,7 +1187,7 @@ def assess_table(db_env_type, query_str, save_location=None):
         to the number of columns in the source DataFrame with profile details.
     '''
     print('Commencing query...')
-    source_df = sql_query(query_str, db_env_type)
+    source_df = sql_query(query_str, db_eng_type)
     print('Query complete.', '\n')
     profile_df = data_profile(source_df, save_location)
 
