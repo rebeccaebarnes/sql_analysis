@@ -162,7 +162,6 @@ class SQLGatherData:
         self.db_server = db_server
         self.test_type = test_type
         self._test_str = None
-
     def _create_count_string(self):
         """TO DO: Add docstring"""
         test_str = ""
@@ -182,33 +181,7 @@ class SQLGatherData:
                                                self.table_names[1:]):
             test_str += table_cte.format(alias=alias, groupby=groupby_field, table=table)
 
-        # Create SELECT statement
-        initial_select_state = \
-        " SELECT {target_alias}.{target_groupby}, {target_alias}.row_count AS {target_alias}_count"
-        test_str += initial_select_state.format(target_alias=self.table_alias[0],
-                                                target_groupby=self.groupby_fields[0])
-
-        table_select = ", {alias}.row_count AS {alias}_count"
-        for alias in self.table_alias[1:]:
-            test_str += table_select.format(alias=alias)
-
-        # Create FROM statement
-        initial_from_state = " FROM {target_alias}"
-        test_str += initial_from_state.format(target_alias=self.table_alias[0])
-
-        join_state = " JOIN {alias} ON {alias}.{groupby_field} = {target_alias}.{target_groupby}"
-        for alias, groupby_field in zip(self.table_alias[1:], self.groupby_fields[1:]):
-            test_str += join_state.format(alias=alias,
-                                          groupby_field=groupby_field,
-                                          target_alias=self.table_alias[0],
-                                          target_groupby=self.groupby_fields[0])
-
-        # Add ordering
-        test_str += " ORDER BY {target_alias}.{target_groupby}"\
-                    .format(target_alias=self.table_alias[0],
-                            target_groupby=self.groupby_fields[0])
-
-        self._test_str = test_str
+        return test_str
 
     def _create_low_distinct_string(self):
         """TO DO: Add docstring"""
@@ -237,43 +210,7 @@ class SQLGatherData:
                                          compare=compare_field,
                                          table=table)
 
-        # Create SELETCT statement
-        initial_select_state = " SELECT {target_alias}.{target_groupby}, "\
-                                + "{target_alias}.{target_compare} AS"\
-                                + " {target_alias}_{target_compare}, "\
-                                + "{target_alias}.row_count AS {target_alias}_count"
-        test_str += initial_select_state.format(target_alias=self.table_alias[0],
-                                                target_compare=self.comparison_fields[0],
-                                                target_groupby=self.groupby_fields[0])
-
-        table_select = ", {alias}.row_count AS {alias}_count"
-        for alias in self.table_alias[1:]:
-            test_str += table_select.format(alias=alias)
-
-        # Create FROM statement
-        initial_from_state = " FROM {target_alias}"
-        test_str += initial_from_state.format(target_alias=self.table_alias[0])
-
-        join_state = " LEFT JOIN {alias} ON {alias}.{groupby_field} = "\
-                     + "{target_alias}.{target_groupby}"\
-                     + " AND {alias}.{compare} = {target_alias}.{target_compare}"
-        for alias, groupby_field, compare_field in zip(self.table_alias[1:],
-                                                       self.groupby_fields[1:],
-                                                       self.comparison_fields[1:]):
-            test_str += join_state.format(alias=alias,
-                                          groupby_field=groupby_field,
-                                          compare=compare_field,
-                                          target_alias=self.table_alias[0],
-                                          target_groupby=self.groupby_fields[0],
-                                          target_compare=self.comparison_fields[0])
-
-        # Add ordering
-        test_str += " ORDER BY {target_alias}.{target_groupby}, {target_alias}.{target_compare}"\
-                    .format(target_alias=self.table_alias[0],
-                            target_groupby=self.groupby_fields[0],
-                            target_compare=self.comparison_fields[0])
-
-        self._test_str = test_str
+        return test_str
 
     def _create_high_distinct_string(self):
         """TO DO: Add docstring"""
@@ -300,34 +237,7 @@ class SQLGatherData:
                                          compare=compare,
                                          table=table)
 
-        # Create SELECT statement
-        initial_select_state = " SELECT {target_alias}.{target_groupby}, "\
-                                + "{target_alias}.row_count AS {target_alias}_count"
-        test_str += initial_select_state.format(target_alias=self.table_alias[0],
-                                                target_groupby=self.groupby_fields[0])
-
-        table_select = ", {alias}.row_count AS {alias}_count"
-        for alias in self.table_alias[1:]:
-            test_str += table_select.format(alias=alias)
-
-        # Create FROM statement
-        initial_from_state = " FROM {target_alias}"
-        test_str += initial_from_state.format(target_alias=self.table_alias[0])
-
-        join_state = " LEFT JOIN {alias} ON {alias}.{groupby_field}"\
-                     + " = {target_alias}.{target_groupby}"
-        for alias, groupby_field in zip(self.table_alias[1:], self.groupby_fields[1:]):
-            test_str += join_state.format(alias=alias,
-                                          groupby_field=groupby_field,
-                                          target_alias=self.table_alias[0],
-                                          target_groupby=self.groupby_fields[0])
-
-        # Add ordering
-        test_str += " ORDER BY {target_alias}.{target_groupby}"\
-                    .format(target_alias=self.table_alias[0],
-                            target_groupby=self.groupby_fields[0])
-
-        self._test_str = test_str
+        return test_str
 
     def _create_numeric_string(self):
         """TO DO: Add docstring"""
@@ -354,34 +264,7 @@ class SQLGatherData:
                                          compare=compare,
                                          table=table)
 
-        # Create SELECT statement
-        initial_select_state = " SELECT {target_alias}.{target_groupby}, "\
-                                + "{target_alias}.row_count AS {target_alias}_count"
-        test_str += initial_select_state.format(target_alias=self.table_alias[0],
-                                                target_groupby=self.groupby_fields[0])
-
-        table_select = ", {alias}.row_count AS {alias}_count"
-        for alias in self.table_alias[1:]:
-            test_str += table_select.format(alias=alias)
-
-        # Create FROM statement
-        initial_from_state = " FROM {target_alias}"
-        test_str += initial_from_state.format(target_alias=self.table_alias[0])
-
-        join_state = " LEFT JOIN {alias} ON {alias}.{groupby_field} = "\
-                     + "{target_alias}.{target_groupby}"
-        for alias, groupby_field in zip(self.table_alias[1:], self.groupby_fields[1:]):
-            test_str += join_state.format(alias=alias,
-                                          groupby_field=groupby_field,
-                                          target_alias=self.table_alias[0],
-                                          target_groupby=self.groupby_fields[0])
-
-        # Add ordering
-        test_str += " ORDER BY {target_alias}.{target_groupby}"\
-                    .format(target_alias=self.table_alias[0],
-                            target_groupby=self.groupby_fields[0])
-
-        self._test_str = test_str
+        return test_str
 
     def _create_id_check_string(self):
         """TO DO: Create docstring"""
@@ -407,18 +290,75 @@ class SQLGatherData:
         inputs:
             test_string: (optional, str, default=None) Complete SQL query string.
         """
+        # Assign str to self._test_str
         if test_string:
             self._test_str = test_string
-        elif self.test_type == 'count':
-            self._create_count_string()
-        elif self.test_type == 'low_distinct':
-            self._create_low_distinct_string()
-        elif self.test_type == 'high_distinct':
-            self._create_high_distinct_string()
-        elif self.test_type == 'numeric':
-            self._create_numeric_string()
         elif self.test_type == 'id_check':
             self._create_id_check_string()
+
+        # Or create initial test string
+        elif self.test_type == 'count':
+            test_str = self._create_count_string()
+        elif self.test_type == 'low_distinct':
+            test_str = self._create_low_distinct_string()
+        elif self.test_type == 'high_distinct':
+            test_str = self._create_high_distinct_string()
+        elif self.test_type == 'numeric':
+            test_str = self._create_numeric_string()
+
+        # Create SELECT statement
+        if self.test_type in ('count', 'high_distinct', 'numeric'):
+            initial_select_state = (" SELECT {target_alias}.{target_groupby}, "
+                                    "{target_alias}.row_count AS {target_alias}_count")
+            test_str += initial_select_state.format(target_alias=self.table_alias[0],
+                                                    target_groupby=self.groupby_fields[0])
+
+        else:
+            initial_select_state = (" SELECT {target_alias}.{target_groupby}, "
+                                    "{target_alias}.{target_compare} AS"
+                                    " {target_alias}_{target_compare}, "
+                                    "{target_alias}.row_count AS {target_alias}_count")
+            test_str += initial_select_state.format(target_alias=self.table_alias[0],
+                                                    target_compare=self.comparison_fields[0],
+                                                    target_groupby=self.groupby_fields[0])
+                                                    
+        table_select = ", {alias}.row_count AS {alias}_count"
+        for alias in self.table_alias[1:]:
+            test_str += table_select.format(alias=alias)
+
+        # Create FROM statement
+        initial_from_state = " FROM {target_alias}"
+        test_str += initial_from_state.format(target_alias=self.table_alias[0])
+
+        # Create JOIN statement
+        if self.test_type in ('count', 'high_distinct', 'numeric'):
+            join_state = (" JOIN {alias} ON {alias}.{groupby_field} "
+                          "= {target_alias}.{target_groupby}")
+            for alias, groupby_field in zip(self.table_alias[1:], self.groupby_fields[1:]):
+                test_str += join_state.format(alias=alias,
+                                              groupby_field=groupby_field,
+                                              target_alias=self.table_alias[0],
+                                              target_groupby=self.groupby_fields[0])
+        else:
+            join_state = (" LEFT JOIN {alias} ON {alias}.{groupby_field} = "
+                          "{target_alias}.{target_groupby}"
+                          " AND {alias}.{compare} = {target_alias}.{target_compare}")
+            for alias, groupby_field, compare_field in zip(self.table_alias[1:],
+                                                           self.groupby_fields[1:],
+                                                           self.comparison_fields[1:]):
+                test_str += join_state.format(alias=alias,
+                                              groupby_field=groupby_field,
+                                              compare=compare_field,
+                                              target_alias=self.table_alias[0],
+                                              target_groupby=self.groupby_fields[0],
+                                              target_compare=self.comparison_fields[0])
+
+        # Add ordering
+        test_str += " ORDER BY {target_alias}.{target_groupby}"\
+                    .format(target_alias=self.table_alias[0],
+                            target_groupby=self.groupby_fields[0])
+
+        self._test_str = test_str
 
     def gather_data(self, test_string=None):
         """
