@@ -56,7 +56,7 @@ Or for multiple tests and combined and summarized. (Blank cells indicate no diff
 </p>
 
 ## Setup
-The files `sql_secrets_example.py` and `sql_config_example.py` provide examples of how the SQLAlchemy engines can be configured. These files should be customized for personal use, and the variable `DB_ENG` in `sql_analysis.py` modified to retrieve the engines.
+The files `sql_secrets.py` and `sql_config.py` provide examples of how the SQLAlchemy engines can be configured. These files should be customized for personal use.
 
 ## Dependencies
 This module utilizes:
