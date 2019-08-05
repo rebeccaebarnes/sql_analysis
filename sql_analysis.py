@@ -472,11 +472,20 @@ class SQLUnitTest:
                 # Assign to summary
                 summary_field = self.groupby_fields[0]
                 if self._summary.empty:
-                    self._summary = self._results[[summary_field, perc_col]].copy()
+                    if self.test_type == 'low_distinct':
+                        # Find groupby mean but replace exact matches with NaN
+                        self._summary = self._results.fillna(0).groupby(summary_field)[perc_col]\
+                                       .mean().replace(0, np.nan).reset_index()
+                    else:
+                        self._summary = self._results[[summary_field, perc_col]].copy()
                     self._summary.rename(columns={perc_col: test_field + '_' + col},
                                          inplace=True)
                 else:
-                    summary_col = self._results[[summary_field, perc_col]].copy()
+                    if self.test_type == 'low_distinct':
+                        summary_col = self._results.fillna(0).groupby(summary_field)[perc_col]\
+                                      .mean().replace(0, np.nan).reset_index()
+                    else:
+                        summary_col = self._results[[summary_field, perc_col]].copy()
                     summary_col.rename(columns={perc_col: test_field + '_' + col},
                                        inplace=True)
                     self._summary = self._summary.merge(summary_col,
@@ -571,10 +580,12 @@ class SQLUnitTest:
         """TODO: Add docstring"""
         # TODO: create tests for input and checking summary_field
         # TODO: manage low_distinct tests
-        # TODO: manage unshared groupby fields
+        # Set index
         summary_field = self.groupby_fields[0]
         self._summary.index = self._summary[summary_field]
         self._summary.drop(summary_field, axis=1, inplace=True)
+        # Drop rows that were only in "target" table
+        self._summary.dropna(how='all', inplace=True)
         self._summary = self._summary.transpose()
 
         if save in ('data', 'both'):
@@ -582,7 +593,7 @@ class SQLUnitTest:
 
         if summary_type in ('image', 'both'):
             palette = sns.diverging_palette(30, 230, s=99, l=60, n=15)
-            plt.figure(figsize=(self._summary.shape[1] * 1.25, self._summary.shape[0]))
+            plt.figure(figsize=(self._summary.shape[1] * 1.5, self._summary.shape[0] * 0.55))
             ax = sns.heatmap(self._summary,
                              vmin=-30,
                              vmax=30,
