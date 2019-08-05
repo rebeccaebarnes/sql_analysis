@@ -367,9 +367,16 @@ class SQLUnitTest:
                                               target_compare=self.comparison_fields[0])
 
         # Add ordering
-        test_str += " ORDER BY {target_alias}.{target_groupby}"\
-                    .format(target_alias=self.table_alias[0],
-                            target_groupby=self.groupby_fields[0])
+        if self.test_type in ('count', 'high_distinct', 'numeric'):
+            test_str += " ORDER BY {target_alias}.{target_groupby}"\
+                        .format(target_alias=self.table_alias[0],
+                                target_groupby=self.groupby_fields[0])
+        else:
+            test_str += (" ORDER BY {target_alias}.{target_groupby}, "
+                         "{target_alias}.{target_compare}")\
+                        .format(target_alias=self.table_alias[0],
+                                target_groupby=self.groupby_fields[0],
+                                target_compare=self.comparison_fields[0])
 
         self._test_str = test_str
 
