@@ -7,3 +7,6 @@ ENGINE_PP = create_engine(PP_STR)
 
 DVD_STR = 'postgresql+psycopg2://postgres:' + sqls.PASSWORD + '@localhost:5433/dvdrental'
 ENGINE_DVD = create_engine(DVD_STR)
+
+DB_ENG = {'dvd': ENGINE_DVD,
+          'pp': ENGINE_PP}

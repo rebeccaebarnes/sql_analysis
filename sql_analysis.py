@@ -5,11 +5,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import sql_config_example as sqlc
+import sql_config as sqlc
 
 
-DB_ENG = {'pp': sqlc.ENGINE_PP,
-          'dvd': sqlc.ENGINE_DVD}
+DB_ENG = sqlc.DB_ENG
 
 def sql_query(query_str, engine):
     '''
