@@ -465,9 +465,7 @@ class SQLUnitTest:
 
                 # Get perc diff
                 perc_col = 'perc_diff_' + col
-                self._results[perc_col] = np.nan
-                count_not_equal = self._results[compare_col] != 0
-                self._results.loc[count_not_equal, perc_col] = \
+                self._results[perc_col] = \
                 round((self._results[target_col] - self._results[col_name])\
                 /self._results[target_col] * 100, 2)
                 # Assess perc diff
@@ -479,17 +477,16 @@ class SQLUnitTest:
                 summary_field = self.groupby_fields[0]
                 if self._summary.empty:
                     if self.test_type == 'low_distinct':
-                        # Find groupby mean but replace exact matches with NaN
-                        self._summary = self._results.fillna(0).groupby(summary_field)[perc_col]\
-                                       .mean().replace(0, np.nan).reset_index()
+                        self._summary = self._results.groupby(summary_field)[perc_col]\
+                                       .mean().reset_index()
                     else:
                         self._summary = self._results[[summary_field, perc_col]].copy()
                     self._summary.rename(columns={perc_col: test_field + '_' + col},
                                          inplace=True)
                 else:
                     if self.test_type == 'low_distinct':
-                        summary_col = self._results.fillna(0).groupby(summary_field)[perc_col]\
-                                      .mean().replace(0, np.nan).reset_index()
+                        summary_col = self._results.groupby(summary_field)[perc_col]\
+                                      .mean().reset_index()
                     else:
                         summary_col = self._results[[summary_field, perc_col]].copy()
                     summary_col.rename(columns={perc_col: test_field + '_' + col},
@@ -582,11 +579,14 @@ class SQLUnitTest:
         if self.save_location:
             self.save_results(index=True)
 
-    def summarize_results(self, summary_type='both', save='both'):
+    def summarize_results(self, summary_type='both', save='both', remove_time=True):
         """TODO: Add docstring"""
         # TODO: create tests for input and checking summary_field
         # Set index
         summary_field = self.groupby_fields[0]
+        if remove_time:
+            if isinstance(self._summary.loc[0, summary_field], datetime.datetime):
+                self._summary[summary_field] = self._summary[summary_field].dt.date
         self._summary.index = self._summary[summary_field]
         self._summary.drop(summary_field, axis=1, inplace=True)
         # Drop rows that were only in "target" table
@@ -606,10 +606,12 @@ class SQLUnitTest:
                              cmap=palette,
                              center=0,
                              annot=True,
+                             fmt='.3g',
                              annot_kws={'fontsize': 12},
                              linewidths=1)
             ax.xaxis.tick_top()
-            ax.tick_params(axis='both', which='both', length=0, rotation=0, labelsize=12)
+            ax.tick_params(axis='both', which='both', length=0, labelsize=12)
+            ax.tick_params(axis='x', rotation=45)
             plt.xlabel('')
             if save in ('image', 'both'):
                 plt.savefig(self.save_location + '/' + self._today_date \
