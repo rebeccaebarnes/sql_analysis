@@ -466,8 +466,8 @@ class SQLUnitTest:
                 # Get perc diff
                 perc_col = 'perc_diff_' + col
                 self._results[perc_col] = \
-                round((self._results[target_col] - self._results[col_name])\
-                /self._results[target_col] * 100, 2)
+                ((self._results[target_col] - self._results[col_name])\
+                /self._results[target_col] * 100).astype(float).round(2)
                 # Assess perc diff
                 assessment = self._assess_priority_review(col, perc_col,
                                                           review_threshold=review_threshold)
@@ -481,7 +481,9 @@ class SQLUnitTest:
                                        .mean().reset_index()
                     else:
                         self._summary = self._results[[summary_field, perc_col]].copy()
-                    self._summary.rename(columns={perc_col: test_field + '_' + col},
+                    self._summary.rename(columns={perc_col: '{}_{} [{}]'.format(test_field,
+                                                                                col,
+                                                                                self.test_type)},
                                          inplace=True)
                 else:
                     if self.test_type == 'low_distinct':
@@ -489,7 +491,9 @@ class SQLUnitTest:
                                       .mean().reset_index()
                     else:
                         summary_col = self._results[[summary_field, perc_col]].copy()
-                    summary_col.rename(columns={perc_col: test_field + '_' + col},
+                    summary_col.rename(columns={perc_col: '{}_{} [{}]'.format(test_field,
+                                                                              col,
+                                                                              self.test_type)},
                                        inplace=True)
                     self._summary = self._summary.merge(summary_col,
                                                         how='outer',
@@ -585,7 +589,7 @@ class SQLUnitTest:
         # Set index
         summary_field = self.groupby_fields[0]
         if remove_time:
-            if isinstance(self._summary.loc[0, summary_field], datetime.datetime):
+            if isinstance(self._summary.loc[0, summary_field], datetime):
                 self._summary[summary_field] = self._summary[summary_field].dt.date
         self._summary.index = self._summary[summary_field]
         self._summary.drop(summary_field, axis=1, inplace=True)
