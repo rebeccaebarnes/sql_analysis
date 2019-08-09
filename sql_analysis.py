@@ -286,7 +286,7 @@ class SQLUnitTest:
                              target_compare=self.comparison_fields[0],
                              target_table=self.table_names[0])
 
-        source_str = ("SELECT {source_groupby}, {source_compare} AS"
+        source_str = ("SELECT {source_groupby}, {source_compare} AS "
                       "{target_compare} FROM {source_table}")\
                      .format(source_groupby=self.groupby_fields[1],
                              source_compare=self.comparison_fields[1],
@@ -308,6 +308,7 @@ class SQLUnitTest:
             self._test_str = test_string
         elif self.test_type == 'id_check':
             self._create_id_check_string()
+            return
 
         # Or create initial test string
         elif self.test_type == 'count':
@@ -536,23 +537,28 @@ class SQLUnitTest:
         self.table_names = (self.table_names[0], self.table_names[source_position])
         self.table_alias = table_alias
 
+        # Get id data
         target_df, source_df = self.gather_data()
-        target_col = count_col = table_alias[0] + '_' + self.comparison_fields[0]
-        source_col = table_alias[1] + '_' + self.comparison_fields[0]
 
-        for col, df in zip((target_col, source_col, count_col),
-                           (target_df, source_df, self._results)):
+        # Run count test
+        self.test_type = 'count'
+        self.run_test()
+
+        target_col = source_col = self.comparison_fields[0]
+
+        for col, df in zip((target_col, source_col),
+                           (target_df, source_df)):
             if col not in df.columns:
                 raise ValueError(
-                    "Each column name in 'table_alias' must be in the respective DataFrame."
+                    "Each column name in 'id_fields' must be in the respective DataFrame."
                     "{} was not found.".format(col)
                     )
 
         target_id = self.groupby_fields[0]
         source_id = self.groupby_fields[1]
 
-        self._results.index = self._results[count_col]
-        self._results.drop(count_col, axis=1, inplace=True)
+        self._results.index = self._results[self.groupby_fields[0]]
+        self._results.drop(self.groupby_fields[0], axis=1, inplace=True)
 
         # Compare ids
         target_in_source_name = table_alias[0] + '_missing_in_' + table_alias[1]
@@ -564,6 +570,7 @@ class SQLUnitTest:
             try:
                 is_ind_target = target_df[target_col] == ind
                 is_ind_source = source_df[source_col] == ind
+                # Note: Code is brittle and depends on Python version, current = 3.7.3 or lower
                 target_in_source = target_df.loc[is_ind_target, target_id]\
                                    .isin(source_df.loc[is_ind_source, source_id])
                 source_in_target = source_df.loc[is_ind_source, source_id]\
@@ -582,6 +589,12 @@ class SQLUnitTest:
         # Check save results
         if self.save_location:
             self.save_results(index=True)
+
+        clear_results = input("Do you wish to clear the stored results, Y/N? "
+                              "(Recommended if moving on to other tests.)  ")
+
+        if clear_results.lower() in ('yes', 'y'):
+            self._results = None
 
     def summarize_results(self, summary_type='both', save='both', remove_time=True):
         """TODO: Add docstring"""
