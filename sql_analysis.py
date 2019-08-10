@@ -23,70 +23,68 @@ def sql_query(query_str, engine):
     '''
     return pd.read_sql(query_str, DB_ENG[engine])
 
-def test_input_SQLUnitTest(data, comparison_names, test_field, save_location):
-    """TO DO: Add docstring"""
-    # data tests
-    if isinstance(data, tuple):
-        if len(data) != 2:
-            raise ValueError(
-                "The tuple contains {} values. Only 2 are accepted."\
-                .format(len(data))
-                )
-        if not isinstance(data[0], str) or not isinstance(data[1], str):
-            raise TypeError(
-                "The values of the tuple must both be strings."
-                )
-        if data[0].split()[0].upper() != 'compare':
-            raise ValueError(
-                "The first value in the tuple must be a SQL compare statement."
-                )
-        if data[1] not in ('dev', 'prod', 'ss'):
-            raise ValueError(
-                "The second value in the tuple must be one of {}."\
-                             .format(list(DB_ENG.keys()))
-                )
-    elif not isinstance(data, pd.core.frame.DataFrame):
+def test_input_string(string_var):
+    # TODO: Add docstring
+    """docstring"""
+    if not isinstance(string_var, str):
         raise TypeError(
-            "The data type for 'data' must either be a tuple"
-            " or a Pandas DataFrame. The current type of 'data' is {}."\
-            .format(type(data))
+            "'test_string' must be of type <str>. "
+            "Current type is {}".format(type(string_var))
+        )
+
+def test_input_ut_init(comparison_fields, groupby_fields,
+                       table_names, table_alias, test_type,
+                       db_server, save_location):
+    """Test inputs for SQLUnitTest"""
+    # Confirm minimum two fields
+    if len(comparison_fields) < 2:
+        raise ValueError(
+            "Minimum length for 'comparison_fields' is 2:"
+            " one field for each of at least two tables."
             )
 
-    # comparison_names tests
-    if len(comparison_names) < 2:
-        raise ValueError(
-            "At least two columns must be specified for comparison."
-            )
-    if not isinstance(comparison_names, (tuple, list)):
-        raise TypeError(
-            "A list-like collection must be used for 'comparison_names'."
-            " A {} object was entered.".format(type(comparison_names))
-            )
-    col_split = data.columns.str.split('_')
-    col_headers = [col[0] for col in col_split]
-    col_suffixes = [col[1] for col in col_split]
-    #for col in col_headers:
-    #    if col not in comparison_names:
-    #        raise ValueError("The prefix of each column name in 'data' must be found in 'comparison_names', followed by '_'.")
-    suffix_count = 0
-    for col in col_suffixes:
-        if col == 'count':
-            suffix_count += 1
-    if suffix_count != len(comparison_names):
-        raise ValueError(
-            "Columns containing values counts must have the suffix '_count'."
-            "There should be one '_count' column for each value in 'comparison_names'."
-            )
-
-    # test_field tests
-    if test_field:
-        if not isinstance(test_field, str):
-            raise TypeError(
-                "'test_field' must be of type str."
+    # Confirm equal field length
+    for field, name in zip((groupby_fields, table_names, table_alias),
+                           ('groupby_fields', 'table_names', 'table_alias')):
+        if len(comparison_fields) != len(field):
+            raise ValueError(
+                "All field lists must have the same length."
+                "The length of the 'comparison_fields'"
+                "does not match the length of '{}' (len = {}).".format(name, len(field))
                 )
 
-    # save_location tests
+    # Check collections
+    for field, name in zip((comparison_fields, groupby_fields, table_names, table_alias),
+                           ('comparison_fields', 'groupby_fields', 'table_names', 'table_alias')):
+        if not isinstance(field, (tuple, list)):
+            raise TypeError(
+                "A list-like collection must be used for database info fields."
+                " A {} object was entered for '{}'.".format(type(field), name)
+                )
+        for value in field:
+            if not isinstance(value, str):
+                raise TypeError(
+                    "All values in collection inputs must be of type <str>. "
+                    "{} from {} is of {} type.".format(value, name, type(value))
+                )
+
+    # Confirm test_type
+    test_types = ('count', 'low_distinct', 'high_distinct', 'numeric', 'id_check')
+    if test_type not in test_types:
+        raise ValueError(
+            "The current value for 'test_type' is {} and is not a valid test type. "
+            "Use a value from {}.".format(test_type, test_types)
+            )
+    # Confirm db_server in DB_ENG
+    if db_server not in DB_ENG.keys():
+        raise ValueError(
+            "The value for 'db_server' is not valid. "
+            "Use a value from {}.".format(DB_ENG.keys())
+        )
+
+    # Check save_location
     if save_location:
+        test_input_string(save_location)
         split_test = save_location.split('\\')
         if len(split_test) > 1:
             raise ValueError(
@@ -94,38 +92,69 @@ def test_input_SQLUnitTest(data, comparison_names, test_field, save_location):
                 "\\ to indicate sub-directories."
                 )
 
-def test_input_SQLGatherData(comparison_fields, groupby_fields,
-                             table_names, table_alias, test_type):
-    """TO DO: Add docstring"""
-    # confirm minimum two fields
-    if len(comparison_fields) < 2:
-        raise ValueError(
-            "Minimum length for 'comparison_fields' is 2:"
-            " one field for each of at least two tables."
-            )
+def test_input_ut_runtest(review_threshold, test_type):
+    # TODO: Add docstring
+    """docstring"""
+    if not isinstance(review_threshold, (int, float)):
+        raise TypeError(
+            "The value for 'review_threshold' must be numeric. "
+            "{} is {}.".format(review_threshold, type(review_threshold))
+        )
 
-    # confirm equal field length
-    for field in (groupby_fields, table_names, table_alias):
-        if len(comparison_fields) != len(field):
+    if test_type == 'id_check':
+        raise ValueError(
+            "The 'run_test' method cannot be used to complete the 'id_check' test. "
+            "Please use the 'compare_ids' method instead."
+        )
+
+def test_input_ut_ids(table_alias, id_fields):
+    # TODO: Add docstring
+    """docstring"""
+    for field, name in zip((id_fields, table_alias), ('id_fields', 'table_alias')):
+        # Only two fields for each
+        if len(field) != 2:
             raise ValueError(
-                "All field lists must have the same length."
-                "The length of the 'comparison_fields'"
-                "does not match the length of {}.".format(field)
+                "Only two fields can be compared at a time for 'compare_ids'. "
+                "{} has len = {}.".format(name, len(field))
+                )
+        # Check for collections
+        if not isinstance(field, (tuple, list)):
+            raise TypeError(
+                "A list-like collection must be used for database info fields."
+                " A {} object was entered for {}.".format(type(field), name)
+                )
+        # Collect values are strings
+        for value in field:
+            if not isinstance(value, str):
+                raise TypeError(
+                    "All values in collection inputs must be of type <str>. "
+                    "{} in {} is of {} type.".format(value, name, type(value))
                 )
 
-    # confirm test_type
-    test_types = ('count', 'low_distinct', 'high_distinct', 'numeric', 'id_check')
-    if test_type not in test_types:
+def test_input_ut_summ(summary_type, save_type, remove_time, save_location):
+    # TODO: Add docstring
+    """docstring"""
+    summary_types = ('data', 'image', 'both')
+    if summary_type not in summary_types:
         raise ValueError(
-            "The value for 'test_type' is not a valid test type."
-            "Use a value from {}.".format(test_types)
-            )
+            "Value for 'summary_type' ({}) must be in {}.".format(summary_type, summary_types)
+        )
 
-    # only two fields for id_check
-    if test_type == 'id_check':
-        if len(comparison_fields) != 2:
+    save_types = ('data', 'image', 'both', False)
+    if save_type not in save_types:
+        raise ValueError(
+            "Value for 'save_type' ({}) must be in {}.".format(save_type, save_types)
+        )
+
+    if not isinstance(remove_time, bool):
+        raise TypeError(
+            "Value for 'remove_time' must be of type <bool>."
+        )
+
+    if save_type:
+        if not save_location:
             raise ValueError(
-                "Only two fields can be compared at a time for test type 'id_check'."
+                "Unable to save results, the 'save_location' attribute is empty."
                 )
 
 class SQLUnitTest:
@@ -142,7 +171,7 @@ class SQLUnitTest:
         table_alias: (list-like) Alias string for each database table to be queried.
                      Each alias must be a single word containing no '_'.
                      Alias order should be consistent with that of 'comparison_fields'.
-        db: (str) Server alias, as specified by DB_ENG.
+        db_server: (str) Server alias, as specified by DB_ENG.
         test_type: {'count', 'low_distinct', 'high_distinct', 'numeric', 'id_check'}.
         save_location: (optional, str) Folder directory for saving.
 
@@ -155,10 +184,13 @@ class SQLUnitTest:
     """
     def __init__(self, comparison_fields, groupby_fields, table_names,
                  table_alias, db_server, test_type, save_location=None):
-        # Test input variables
-        # TODO: Manage test_input_SQLUnitTest(save_location) & SQLGatherData test
-
-        # Convert SQL to DataFrame as needed
+        test_input_ut_init(comparison_fields=comparison_fields,
+                           groupby_fields=groupby_fields,
+                           table_names=table_names,
+                           table_alias=table_alias,
+                           db_server=db_server,
+                           test_type=test_type,
+                           save_location=save_location)
 
         self.comparison_fields = comparison_fields
         self.groupby_fields = groupby_fields
@@ -305,6 +337,7 @@ class SQLUnitTest:
         """
         # Assign str to self._test_str
         if test_string:
+            test_input_string(string_var=test_string)
             self._test_str = test_string
         elif self.test_type == 'id_check':
             self._create_id_check_string()
@@ -453,6 +486,8 @@ class SQLUnitTest:
                               Percentage difference between comparison fields that
                               flags the field for priority assessment.
         """
+        test_input_ut_runtest(review_threshold=review_threshold, test_type=self.test_type)
+
         print('Commencing {} test for {}...'.format(self.test_type, self.comparison_fields[0]))
         self._results = self.gather_data(test_string=test_string)
         target_col = self.table_alias[0] + '_count'
@@ -524,11 +559,8 @@ class SQLUnitTest:
             id_fields: (list-like) Names of ID fields to compare.
                        "Target" table field must be listed first.
         """
-        # Test comparison names
-        if len(table_alias) != 2:
-            raise ValueError(
-                "For ID comparison, only two values in 'comparison_names' are accepted."
-                )
+        test_input_ut_ids(table_alias=table_alias, id_fields=id_fields)
+
         # Update for test type
         self.test_type = 'id_check'
         source_position = self.table_alias.index(table_alias[1])
@@ -596,10 +628,15 @@ class SQLUnitTest:
         if clear_results.lower() in ('yes', 'y'):
             self._results = None
 
-    def summarize_results(self, summary_type='both', save='both', remove_time=True):
-        """TODO: Add docstring"""
-        # TODO: create tests for input and checking summary_field
-        # Set index
+    def summarize_results(self, summary_type='both', save_type='both', remove_time=True):
+        # TODO: Add docstring
+        """docstring"""
+        test_input_ut_summ(summary_type=summary_type,
+                           save_type=save_type,
+                           remove_time=remove_time,
+                           save_location=self.save_location)
+
+        # Set index for summary df
         summary_field = self.groupby_fields[0]
         if remove_time:
             if isinstance(self._summary.loc[0, summary_field], datetime):
@@ -610,7 +647,7 @@ class SQLUnitTest:
         self._summary.dropna(how='all', inplace=True)
         self._summary = self._summary.transpose()
 
-        if save in ('data', 'both'):
+        if save_type in ('data', 'both'):
             self._summary.to_csv(self.save_location + '/' + self._today_date \
                                  + '/summary_' + self._today_date + '.csv')
 
@@ -630,7 +667,7 @@ class SQLUnitTest:
             ax.tick_params(axis='both', which='both', length=0, labelsize=12)
             ax.tick_params(axis='x', rotation=45)
             plt.xlabel('')
-            if save in ('image', 'both'):
+            if save_type in ('image', 'both'):
                 plt.savefig(self.save_location + '/' + self._today_date \
                             + '/summary_img_' + self._today_date + '.png')
             plt.show()
