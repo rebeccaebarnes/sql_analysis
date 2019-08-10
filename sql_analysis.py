@@ -335,13 +335,13 @@ class SQLUnitTest:
         inputs:
             test_string: (optional, str) Custom SQL query string.
         """
-        # Assign str to self._test_str
-        if test_string:
-            test_input_string(string_var=test_string)
-            self._test_str = test_string
-        elif self.test_type == 'id_check':
+        # Manage 'id_check' or custom test_str
+        if self.test_type == 'id_check':
             self._create_id_check_string()
             return
+        elif test_string:
+            test_input_string(string_var=test_string)
+            self._test_str = test_string
 
         # Or create initial test string
         elif self.test_type == 'count':
@@ -353,65 +353,66 @@ class SQLUnitTest:
         elif self.test_type == 'numeric':
             test_str = self._create_numeric_string()
 
+        # Set up string elements
+        joins = ''
+        selects = ''
+
         # Create SELECT statement
         if self.test_type in ('count', 'high_distinct', 'numeric'):
             initial_select_state = (" SELECT {target_alias}.{target_groupby}, "
-                                    "{target_alias}.row_count AS {target_alias}_count")
-            test_str += initial_select_state.format(target_alias=self.table_alias[0],
-                                                    target_groupby=self.groupby_fields[0])
+                                    "{target_alias}.row_count AS {target_alias}_count")\
+                                   .format(target_alias=self.table_alias[0],
+                                           target_groupby=self.groupby_fields[0])
 
+            join_state = (" JOIN {alias} ON {alias}.{groupby_field} "
+                          "= {target_alias}.{target_groupby}")
+            for alias, groupby_field in zip(self.table_alias[1:], self.groupby_fields[1:]):
+                joins += join_state.format(alias=alias,
+                                           groupby_field=groupby_field,
+                                           target_alias=self.table_alias[0],
+                                           target_groupby=self.groupby_fields[0])
+
+            order = " ORDER BY {target_alias}.{target_groupby}"\
+                        .format(target_alias=self.table_alias[0],
+                                target_groupby=self.groupby_fields[0])
         else:
             initial_select_state = (" SELECT {target_alias}.{target_groupby}, "
                                     "{target_alias}.{target_compare} AS"
                                     " {target_alias}_{target_compare}, "
-                                    "{target_alias}.row_count AS {target_alias}_count")
-            test_str += initial_select_state.format(target_alias=self.table_alias[0],
-                                                    target_compare=self.comparison_fields[0],
-                                                    target_groupby=self.groupby_fields[0])
+                                    "{target_alias}.row_count AS {target_alias}_count")\
+                                   .format(target_alias=self.table_alias[0],
+                                           target_compare=self.comparison_fields[0],
+                                           target_groupby=self.groupby_fields[0])
 
-        table_select = ", {alias}.row_count AS {alias}_count"
-        for alias in self.table_alias[1:]:
-            test_str += table_select.format(alias=alias)
-
-        # Create FROM statement
-        initial_from_state = " FROM {target_alias}"
-        test_str += initial_from_state.format(target_alias=self.table_alias[0])
-
-        # Create JOIN statement
-        if self.test_type in ('count', 'high_distinct', 'numeric'):
-            join_state = (" JOIN {alias} ON {alias}.{groupby_field} "
-                          "= {target_alias}.{target_groupby}")
-            for alias, groupby_field in zip(self.table_alias[1:], self.groupby_fields[1:]):
-                test_str += join_state.format(alias=alias,
-                                              groupby_field=groupby_field,
-                                              target_alias=self.table_alias[0],
-                                              target_groupby=self.groupby_fields[0])
-        else:
             join_state = (" LEFT JOIN {alias} ON {alias}.{groupby_field} = "
                           "{target_alias}.{target_groupby}"
                           " AND {alias}.{compare} = {target_alias}.{target_compare}")
             for alias, groupby_field, compare_field in zip(self.table_alias[1:],
                                                            self.groupby_fields[1:],
                                                            self.comparison_fields[1:]):
-                test_str += join_state.format(alias=alias,
-                                              groupby_field=groupby_field,
-                                              compare=compare_field,
-                                              target_alias=self.table_alias[0],
-                                              target_groupby=self.groupby_fields[0],
-                                              target_compare=self.comparison_fields[0])
+                joins += join_state.format(alias=alias,
+                                           groupby_field=groupby_field,
+                                           compare=compare_field,
+                                           target_alias=self.table_alias[0],
+                                           target_groupby=self.groupby_fields[0],
+                                           target_compare=self.comparison_fields[0])
 
-        # Add ordering
-        if self.test_type in ('count', 'high_distinct', 'numeric'):
-            test_str += " ORDER BY {target_alias}.{target_groupby}"\
-                        .format(target_alias=self.table_alias[0],
-                                target_groupby=self.groupby_fields[0])
-        else:
-            test_str += (" ORDER BY {target_alias}.{target_groupby}, "
-                         "{target_alias}.{target_compare}")\
-                        .format(target_alias=self.table_alias[0],
-                                target_groupby=self.groupby_fields[0],
-                                target_compare=self.comparison_fields[0])
+            order = (" ORDER BY {target_alias}.{target_groupby}, "
+                     "{target_alias}.{target_compare}")\
+                    .format(target_alias=self.table_alias[0],
+                            target_groupby=self.groupby_fields[0],
+                            target_compare=self.comparison_fields[0])
 
+        table_select = ", {alias}.row_count AS {alias}_count"
+        for alias in self.table_alias[1:]:
+            selects += table_select.format(alias=alias)
+
+        # Create FROM statement
+        initial_from_state = " FROM {target_alias}".format(target_alias=self.table_alias[0])
+
+        # Create test string
+        test_str += initial_select_state + selects + initial_from_state \
+                    + joins + order
         self._test_str = test_str
 
     def gather_data(self, test_string=None):
@@ -444,9 +445,10 @@ class SQLUnitTest:
     def _assess_priority_review(self, comparison_col, assess_col, review_threshold):
         """TO DO: Add docstring"""
         assessment = None
-        if self._results[assess_col].mean() == 100:
+        if self._results[assess_col].isnull().sum() == self._results.shape[0]:
             assessment = 'MISSING VALUE for ' + comparison_col + '_' + self.comparison_fields[0]
             print(assessment)
+            return assessment
 
         is_not_missing = self._results[assess_col] != 100
         not_missing_median = self._results.loc[is_not_missing, assess_col].abs().median()
@@ -454,7 +456,7 @@ class SQLUnitTest:
             assessment = 'PRIORITY REVIEW on ' + comparison_col + '_' \
                          + self.comparison_fields[0] + ': ' + str(not_missing_median)
             print(assessment)
-        return assessment
+            return assessment
 
     def save_results(self, index=False):
         """
@@ -669,7 +671,8 @@ class SQLUnitTest:
             plt.xlabel('')
             if save_type in ('image', 'both'):
                 plt.savefig(self.save_location + '/' + self._today_date \
-                            + '/summary_img_' + self._today_date + '.png')
+                            + '/summary_img_' + self._today_date + '.png',
+                            bbox_inches='tight')
             plt.show()
 
         return self._summary
