@@ -107,7 +107,7 @@ def test_input_ut_runtest(review_threshold, test_type):
             "Please use the 'compare_ids' method instead."
         )
 
-def test_input_ut_ids(table_alias, id_fields):
+def test_input_ut_ids(table_alias, id_fields, clear_results, remove_time):
     # TODO: Add docstring
     """docstring"""
     for field, name in zip((id_fields, table_alias), ('id_fields', 'table_alias')):
@@ -131,6 +131,12 @@ def test_input_ut_ids(table_alias, id_fields):
                     "{} in {} is of {} type.".format(value, name, type(value))
                 )
 
+    # Test remove_results and remove_time
+    for field in (clear_results, remove_time):
+        if not isinstance(field, bool):
+            raise TypeError(
+                "Values for both 'clear_results' and 'remove_time' must be of type <bool>."
+            )
 def test_input_ut_summ(summary_type, save_type, remove_time, save_location):
     # TODO: Add docstring
     """docstring"""
@@ -339,7 +345,7 @@ class SQLUnitTest:
         if self.test_type == 'id_check':
             self._create_id_check_string()
             return
-        elif test_string:
+        if test_string:
             test_input_string(string_var=test_string)
             self._test_str = test_string
 
@@ -549,10 +555,9 @@ class SQLUnitTest:
             self.save_results()
         print('Test for {} complete.\n'.format(test_field))
 
-    def compare_ids(self, table_alias, id_fields):
+    def compare_ids(self, table_alias, id_fields, clear_results=True, remove_time=True):
         """
         Complete a count comparison based on stored data and combine with a comparison of IDs.
-        Stores results in '_results'.
         Saves results if save_location is stored.
 
         inputs:
@@ -560,8 +565,14 @@ class SQLUnitTest:
                          "Target" table must be listed first.
             id_fields: (list-like) Names of ID fields to compare.
                        "Target" table field must be listed first.
+            clear_results: (optional, bool, default=True) If True, clear _results.
+                           If False, retains results. (If moving on to other tests
+                           it is recommended to clear results.)
+            remove_time: (optional, bool, default=True) If True, if groupby is a
+                         datetime field, then the time component is removed.
         """
-        test_input_ut_ids(table_alias=table_alias, id_fields=id_fields)
+        test_input_ut_ids(table_alias=table_alias, id_fields=id_fields,
+                          clear_results=clear_results, remove_time=remove_time)
 
         # Update for test type
         self.test_type = 'id_check'
@@ -578,43 +589,58 @@ class SQLUnitTest:
         self.test_type = 'count'
         self.run_test()
 
-        target_col = source_col = self.comparison_fields[0]
+        # Assign values for easy reference
+        target_groupby = self.groupby_fields[0]
+        source_groupby = self.groupby_fields[1]
+        target_id = self.comparison_fields[0]
+        source_id = self.comparison_fields[1]
 
-        for col, df in zip((target_col, source_col),
+        # Confirm id fields are in their respective dfs
+        for col, df in zip((target_id, source_id),
                            (target_df, source_df)):
             if col not in df.columns:
                 raise ValueError(
-                    "Each column name in 'id_fields' must be in the respective DataFrame."
-                    "{} was not found.".format(col)
+                    "Each column name in 'id_fields' must be in the respective DataFrame. "
+                    "{} was not found in the corresponding DataFrame.".format(col)
                     )
 
-        target_id = self.groupby_fields[0]
-        source_id = self.groupby_fields[1]
-
+        # Convert groupby field of count results to index for easier comparisons
+        if remove_time:
+            if isinstance(self._results.loc[0, self.groupby_fields[0]], datetime):
+                self._results[self.groupby_fields[0]] = \
+                self._results[self.groupby_fields[0]].dt.date
         self._results.index = self._results[self.groupby_fields[0]]
         self._results.drop(self.groupby_fields[0], axis=1, inplace=True)
 
         # Compare ids
         target_in_source_name = table_alias[0] + '_missing_in_' + table_alias[1]
         source_in_target_name = table_alias[1] + '_missing_in_' + table_alias[0]
-        self._results[target_in_source_name] = np.nan
-        self._results[source_in_target_name] = np.nan
         for ind in self._results.index:
             print("Commencing ID comparison for", ind, "...")
             try:
-                is_ind_target = target_df[target_col] == ind
-                is_ind_source = source_df[source_col] == ind
+                # Get ids from the specified groupby value
+                is_ind_target = target_df[target_groupby] == ind
+                is_ind_source = source_df[source_groupby] == ind
                 # Note: Code is brittle and depends on Python version, current = 3.7.3 or lower
+                # Check if the id values are in the other DataFrame
                 target_in_source = target_df.loc[is_ind_target, target_id]\
                                    .isin(source_df.loc[is_ind_source, source_id])
                 source_in_target = source_df.loc[is_ind_source, source_id]\
                                    .isin(target_df.loc[is_ind_target, target_id])
+                # Collect missing ids
+                missing_target_ids = \
+                target_df.loc[~target_in_source & is_ind_target, target_id].values
+                missing_source_ids = \
+                source_df.loc[~source_in_target & is_ind_source, source_id].values
+                # Store id values and counts in results
                 self._results.loc[ind, target_in_source_name] = \
-                str(target_df.loc[~target_in_source & is_ind_target, target_id].values)\
-                .replace(' ', ', ')
+                ", ".join(str(missing_target_ids).strip('[] ').split())
+                self._results.loc[ind, 'missing_' + table_alias[0] + '_ids'] = \
+                missing_target_ids.shape[0]
                 self._results.loc[ind, source_in_target_name] = \
-                str(source_df.loc[~source_in_target & is_ind_source, source_id].values)\
-                .replace(' ', ', ')
+                ", ".join(str(missing_source_ids).strip('[] ').split())
+                self._results.loc[ind, 'missing_' + table_alias[1] + '_ids'] = \
+                missing_source_ids.shape[0]
             except Exception as e:
                 self._exceptions['missing_id_' + str(ind)] = e
                 print('EXCEPTION missing_id', ind, ":", e)
@@ -624,10 +650,8 @@ class SQLUnitTest:
         if self.save_location:
             self.save_results(index=True)
 
-        clear_results = input("Do you wish to clear the stored results, Y/N? "
-                              "(Recommended if moving on to other tests.)  ")
-
-        if clear_results.lower() in ('yes', 'y'):
+        # Check to clear results
+        if clear_results:
             self._results = None
 
     def summarize_results(self, summary_type='both', save_type='both', remove_time=True):
