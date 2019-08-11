@@ -151,7 +151,7 @@ def test_input_ut_ids(table_alias, id_fields, clear_results, remove_time):
             raise TypeError(
                 "Values for both 'clear_results' and 'remove_time' must be of type <bool>."
             )
-def test_input_ut_summ(summary_type, save_type, remove_time, save_location):
+def test_input_ut_summ(summary_type, save_type, remove_time, keyword_dict, save_location):
     """Test inputs for SQLUnitTest summarize_results method."""
     summary_types = ('data', 'image', 'both')
     if summary_type not in summary_types:
@@ -167,12 +167,20 @@ def test_input_ut_summ(summary_type, save_type, remove_time, save_location):
 
     if not isinstance(remove_time, bool):
         raise TypeError(
-            "Value for 'remove_time' must be of type <bool>."
+            "Value for 'remove_time' must be of type <bool>. Current type is {}."\
+            .format(type(remove_time))
         )
+
+    if keyword_dict:
+        if not isinstance(keyword_dict, dict):
+            raise TypeError(
+                "Value for 'keyword_dict' must be of type <dict>. Current type is {}."\
+                .format(type(keyword_dict))
+            )
 
     if save_type:
         if not save_location:
-            raise ValueError(
+            raise AttributeError(
                 "Unable to save results, the 'save_location' attribute is empty."
                 )
 
@@ -549,9 +557,9 @@ class SQLUnitTest:
 
         Parameters:
             test_string: (str, optional) Custom SQL query string.
-            review_threshold: (numeric, optional, default=2)
-                              Percentage difference between comparison fields that
-                              flags the field for priority assessment.
+            review_threshold: (numeric, optional, default=2) Threshold, as a
+                              percentage, above which differences in values will
+                              be flagged for priority review.
         """
         test_input_ut_runtest(review_threshold=review_threshold, test_type=self.test_type)
 
@@ -714,7 +722,8 @@ class SQLUnitTest:
         if clear_results:
             self._results = None
 
-    def summarize_results(self, summary_type='both', save_type='both', remove_time=True):
+    def summarize_results(self, summary_type='both', save_type='both', remove_time=True,
+                          keyword_dict=None):
         """
         Format data in _summary in DataFrame and image forms.
 
@@ -736,10 +745,24 @@ class SQLUnitTest:
             remove_time: (optional, boolean, default=True) If the values in the
                          groupby fields are of type <datetime>, if True, converts
                          the type to <date>.
+            keyword_dict: (optional, dict) Allows for passing of arguments via
+                          dictionary. If keyword_dict is used, no values should
+                          be provided for the other parameters.
         """
+        # Manage keyword dict
+        if keyword_dict:
+            for key, value in keyword_dict.items():
+                if key == 'summary_type':
+                    summary_type = value
+                if key == 'save_type':
+                    save_type = value
+                if key == 'remove_time':
+                    remove_time = value
+
         test_input_ut_summ(summary_type=summary_type,
                            save_type=save_type,
                            remove_time=remove_time,
+                           keyword_dict=keyword_dict,
                            save_location=self.save_location)
 
         # Set index for summary df
@@ -780,6 +803,108 @@ class SQLUnitTest:
             plt.show()
 
         return self._summary
+
+def test_input_comp_tables(high_distinct_fields, low_distinct_fields,
+                           numeric_fields, save_location, summ_kwargs):
+    """Test inputs for compare_tables."""
+    # Test collections
+    for test_fields, name in zip((high_distinct_fields,
+                                  low_distinct_fields,
+                                  numeric_fields),
+                                 ('high_distinct_fields',
+                                  'low_distinct_fields',
+                                  'numeric_fields')):
+        if test_fields:
+            if not isinstance(test_fields, (list, tuple)):
+                raise TypeError(
+                    "The parameter {} must be of type <list> or <tuple>. "
+                    "Current type is {}".format(name, type(test_fields))
+                )
+            for comparison_fields in test_fields:
+                if not isinstance(test_fields, (list, tuple)):
+                    raise TypeError(
+                        "The objects in {} must be of type <list> or <tuple>. "
+                        "At least one object is {}".format(name, type(comparison_fields))
+                    )
+                for value in comparison_fields:
+                    test_input_string(value)
+
+    # Test save location has been included if required
+    if not summ_kwargs and not save_location:
+        raise AttributeError(
+            "Unable to save results, the 'save_location' attribute is empty."
+        )
+    if summ_kwargs:
+        for key, value in summ_kwargs.items():
+            if key == 'save_type' and value and not save_location:
+                raise AttributeError(
+                    "Unable to save results, the 'save_location' attribute is empty."
+                )
+
+def compare_tables(table_names, table_alias, groupby_fields, id_fields,
+                   db_server, high_distinct_fields=None, low_distinct_fields=None,
+                   numeric_fields=None, save_location=None, review_threshold=2,
+                   summ_kwargs=None):
+    """
+    Run data comparison tests between tables.
+
+    Tests assume that a straight pull can be done from the tables, with no
+    additional filters or joins.
+
+    Parameters:
+        table_names: (list-like) Name of each database table to be queried.
+                     "Target" table should be listed first.
+        table_alias: (list-like) Alias string for each database table to be queried.
+                     Each alias must be a single word containing no underscores.
+                     Alias order should be consistent with that of 'table_names'.
+        groupby_fields: (list-like) Name of field used to group for each table.
+                        Field order should be consistent with that of 'table_names'.
+        id_fields: (list-like) Name of the primary id field in each table.
+                   Field order should be consistent with that of 'table_names'.
+        db_server: (str) Server alias, as found in DB_ENG.keys().
+        high_distinct_fields: (optional, list-like) Collections of text field names
+                              that have many distinct values. The order of the
+                              collections within the variable should match that
+                              of 'table_names'.
+        high_distinct_fields: (optional, list-like) Collections of text field names
+                              that have few distinct values. The order of the
+                              collections within the variable should match that
+                              of 'table_names'.
+        numeric_fields: (optional, list-like) Collections of numeric field names.
+                        The order of the collections within the variable should
+                        match that of 'table_names'.
+        save_location: (optional, str) Folder directory for saving.
+        review_threshold: (optional, numeric, default=2) Threshold, as a
+                          percentage, above which differences in values will be
+                          flagged for priority review.
+        summ_kwargs: (optional, dict) Will be passed into SQLUnitTest.summarize_results.
+    """
+    test_input_comp_tables(high_distinct_fields=high_distinct_fields,
+                           low_distinct_fields=low_distinct_fields,
+                           numeric_fields=numeric_fields,
+                           save_location=save_location, summ_kwargs=summ_kwargs)
+
+    tester = SQLUnitTest(comparison_fields=id_fields,
+                         groupby_fields=groupby_fields,
+                         table_names=table_names,
+                         table_alias=table_alias,
+                         db_server=db_server,
+                         test_type='count',
+                         save_location=save_location)
+
+    tester.run_test(review_threshold=review_threshold)
+
+    for test_fields, test_type in zip((high_distinct_fields, low_distinct_fields, numeric_fields),
+                                      ('high_distinct', 'low_distinct', 'numeric')):
+        if test_fields:
+            tester.test_type = test_type
+            for comparison_fields in test_fields:
+                tester.comparison_fields = comparison_fields
+                tester.run_test(review_threshold=review_threshold)
+
+    summary = tester.summarize_results(keyword_dict=summ_kwargs)
+
+    return summary
 
 class MetricCalc():
     """docstring"""
