@@ -2,26 +2,31 @@
 
 The SQL Analysis module assists in testing of data between SQL database tables. This is the development version of the module.
 
-Use examples include comparing results in a view table to those derived from a star schema, or comparing results from a table derived from an external source to a table built via ETL.
+Use examples include comparing data in a view to those in a table derived from a star schema, or comparing results from a table derived from an external source to a table built via ETL.
 
 ## Main Features
 
-**SQLGatherData** allows generation of SQL query strings and gathering of data to complete one of five different tests `count`, `low_distinct`, `high_distinct`, `numeric`, and `id_check`. It also allows for use of custom query strings.
-
-1. **SQLUnitTest**
-    1. Creates and runs SQL database queries based on attributes provided with class instantiation.
+- **Class: SQLUnitTest**
+    1. Creates and runs SQL database queries based on attributes provided with class instantiation or custom SQL query string.
     2. Completes five built in tests based on field-type categorizations of `count`, `low_distinct`, `high_distinct`, `numeric`, `id_check`.
     3. Flags fields above a specified difference threshold for "priority review".
     4. Displays a summary of results.
+    5. Saves results and summary as specified.
 
-2. Basic database queries can also be completed via the use of **sql_query**.
+- **Function: compare_tables**
+    1. Utilizes methods of SQLUnitTest to complete a full comparison of table values.
+
+- **Function: sql_query**
+    1. Conducts basic database queries
+
 
 ## Functionality Overview
 The concept behind the testing is that database information can often be segmented by a field, such as dates. Testing can be done by comparing field values across these groupings.
 
 If we had three tables `rental_view`, `alt_rental_view`, and `alt_sim_rental_view` we may wish to compare them to see if the "alt" tables are accurately capturing the information in `rental_view`.
 
-We could view each table:
+### Basic Query
+We could view the tables:
 
 **rental_view**
 
@@ -41,18 +46,35 @@ We could view each table:
   <img src="img/alt_sim_rental_view.PNG">
 </p>
 
-In this case, the field that can be used to group the data is `ss_dt` for `rental_view` and `alt_sim_rental_view`, and `ss_date` for `alt_rental_view`.
+### Run Test Battery
+And run tests on them:
 
-Table information can be specified on instantiation and the `run_test` method will create the SQL query string, complete the query, and compare the results. (Methods are available to complete each step separately) This can be done for an individual test.
+To complete the test battery we need to determine the fields that can segment the data. In this case, the field that can be used to group the data is `ss_dt` for `rental_view` and `alt_sim_rental_view`, and `ss_date` for `alt_rental_view`.
 
+Table information is specified on instantiation and `compare_tables` will create all query strings, gather the data, and run the tests based on the information provided. (Methods are available via SQLUnitTest to complete each step separately)
+
+**Setup Code**
 <p align="center">
-  <img src="img/count_test.PNG">
+  <img src="img/compare_tables_code.PNG">
 </p>
 
-Or for multiple tests and combined and summarized. (Blank cells indicate no difference between fields)
+Activity, exceptions, and fields flagged for priority review are logged during operation.
 
+**Log Print-out**
 <p align="center">
-  <img src="img/summarize.PNG">
+  <img src="img/log.PNG">
+</p>
+
+**Log Storage**
+<p align="center">
+  <img src="img/log_storage.PNG">
+</p>
+
+A summarized version of results (as a DataFrame or image), indicating the percentage difference between table fields (and the test type used), is also available via the test battery.
+
+**Visual Summary**
+<p align="center">
+  <img src="img/results.png">
 </p>
 
 ## Setup
