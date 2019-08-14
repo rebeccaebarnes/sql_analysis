@@ -151,7 +151,8 @@ def test_input_ut_ids(table_alias, id_fields, clear_results, remove_time):
             raise TypeError(
                 "Values for both 'clear_results' and 'remove_time' must be of type <bool>."
             )
-def test_input_ut_summ(summary_type, save_type, remove_time, keyword_dict, save_location):
+def test_input_ut_summ(summary_type, save_type, remove_time, keyword_dict, save_location,
+                       clear_summary):
     """Test inputs for SQLUnitTest summarize_results method."""
     summary_types = ('data', 'image', 'both')
     if summary_type not in summary_types:
@@ -165,11 +166,19 @@ def test_input_ut_summ(summary_type, save_type, remove_time, keyword_dict, save_
             "Value for 'save_type' ({}) must be in {}.".format(save_type, save_types)
         )
 
-    if not isinstance(remove_time, bool):
-        raise TypeError(
-            "Value for 'remove_time' must be of type <bool>. Current type is {}."\
-            .format(type(remove_time))
-        )
+    if summary_types != save_types:
+        if (summary_type == 'image' and save_type in ('both', 'data')) \
+           or (summary_type == 'data') and save_type in ('both', 'image'):
+            raise ValueError(
+                "'save_type' must match or be encompassed by 'summary_type'."
+            )
+
+    for field, name in zip((remove_time, clear_summary), ('remove_time', 'clear_summary')):
+        if not isinstance(field, bool):
+            raise TypeError(
+                "Value for '{}' must be of type <bool>. Current type is {}."\
+                .format(name, type(field))
+            )
 
     if keyword_dict:
         if not isinstance(keyword_dict, dict):
@@ -579,6 +588,9 @@ class SQLUnitTest:
                 self._results[perc_col] = \
                 ((self._results[target_col] - self._results[col_name])\
                 /self._results[target_col] * 100).astype(float).round(2)
+                # Manage missing high_distinct fields
+                if self.test_type == 'high_distinct':
+                    self._results.loc[self._results[perc_col] == 100, perc_col] = np.nan
                 # Assess perc diff
                 assessment = self._assess_priority_review(col, perc_col,
                                                           review_threshold=review_threshold)
@@ -723,7 +735,7 @@ class SQLUnitTest:
             self._results = None
 
     def summarize_results(self, summary_type='both', save_type='both', remove_time=True,
-                          keyword_dict=None):
+                          clear_summary=True, keyword_dict=None):
         """
         Format data in _summary in DataFrame and image forms.
 
@@ -745,6 +757,9 @@ class SQLUnitTest:
             remove_time: (optional, boolean, default=True) If the values in the
                          groupby fields are of type <datetime>, if True, converts
                          the type to <date>.
+            clear_summary: (optional, boolean, default=True) Indicates whether
+                           _summary should be cleared after analysis. If True,
+                           the _summary attribute will be cleared.
             keyword_dict: (optional, dict) Allows for passing of arguments via
                           dictionary. If keyword_dict is used, no values should
                           be provided for the other parameters.
@@ -758,12 +773,15 @@ class SQLUnitTest:
                     save_type = value
                 if key == 'remove_time':
                     remove_time = value
+                if key == 'clear_summary':
+                    clear_summary = value
 
         test_input_ut_summ(summary_type=summary_type,
                            save_type=save_type,
                            remove_time=remove_time,
                            keyword_dict=keyword_dict,
-                           save_location=self.save_location)
+                           save_location=self.save_location,
+                           clear_summary=clear_summary)
 
         # Set index for summary df
         summary_field = self.groupby_fields[0]
@@ -774,7 +792,13 @@ class SQLUnitTest:
         self._summary.drop(summary_field, axis=1, inplace=True)
         # Drop rows that were only in "target" table
         self._summary.dropna(how='all', inplace=True)
+        self._summary.sort_index(inplace=True)
+        # Rearrange to have gropuby_field as columns
         self._summary = self._summary.transpose()
+        # Sort names but keep count at top
+        self._summary = pd.concat([self._summary.iloc[: len(self.groupby_fields) - 1],
+                                   self._summary.iloc[len(self.groupby_fields) - 1:].sort_index()])
+        #self._summary.sort_index(inplace=True)
 
         if save_type in ('data', 'both'):
             self._summary.to_csv(self.save_location + '/' + self._today_date \
@@ -802,7 +826,12 @@ class SQLUnitTest:
                             bbox_inches='tight')
             plt.show()
 
-        return self._summary
+        summary = self._summary.copy()
+
+        if clear_summary:
+            self._summary = None
+        if summary_type in ('both', 'data'):
+            return summary
 
 def test_input_comp_tables(high_distinct_fields, low_distinct_fields,
                            numeric_fields, save_location, summ_kwargs):
@@ -878,6 +907,13 @@ def compare_tables(table_names, table_alias, groupby_fields, id_fields,
                           percentage, above which differences in values will be
                           flagged for priority review.
         summ_kwargs: (optional, dict) Will be passed into SQLUnitTest.summarize_results.
+
+    Returns:
+        summary: (DataFrame) Returns if 'data' or 'both' is selected as the value
+                             'summary_type' attribute for 'summarize_results'.
+                             'both' is the default setting.
+        tester: (class SQLUnitTest) Object to provide access to exception and
+                                    priority review logs.
     """
     test_input_comp_tables(high_distinct_fields=high_distinct_fields,
                            low_distinct_fields=low_distinct_fields,
@@ -900,11 +936,15 @@ def compare_tables(table_names, table_alias, groupby_fields, id_fields,
             tester.test_type = test_type
             for comparison_fields in test_fields:
                 tester.comparison_fields = comparison_fields
-                tester.run_test(review_threshold=review_threshold)
+                try:
+                    tester.run_test(review_threshold=review_threshold)
+                except Exception as e:
+                    print('EXCEPTION:', e)
+                    tester._exceptions[comparison_fields[0]] = e
 
     summary = tester.summarize_results(keyword_dict=summ_kwargs)
 
-    return summary
+    return summary, tester
 
 class MetricCalc():
     """docstring"""
