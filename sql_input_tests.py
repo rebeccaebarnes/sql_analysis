@@ -17,7 +17,7 @@ def test_in_collection(variable: Any,
             "Use a value from {}.".format(variable, collection_name, collection)
             )
 
-def no_save_location():
+def no_save_location() -> NoReturn:
     """Raise AttributeError"""
     raise AttributeError(
         "Unable to save results, the 'save_location' attribute is empty. "

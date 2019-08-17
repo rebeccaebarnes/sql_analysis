@@ -8,7 +8,7 @@ The :mod:`sql_analysis` module gathers and assesses data from SQL databases.
 from datetime import datetime
 import os
 from time import time
-from typing import NoReturn, Optional, Sequence, Tuple, Union
+from typing import NoReturn, Optional, Sequence, Tuple, TypeVar, Union
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,8 +18,9 @@ import sql_input_tests as sqlit
 
 
 DB_ENG = sqlc.DB_ENG
+P = TypeVar('P', bound=pd.DataFrame)
 
-def sql_query(query_str: str, engine: str) -> pd.DataFrame:
+def sql_query(query_str: str, engine: str) -> P:
     """
     Complete database query using pandas.read_sql.
 
@@ -35,6 +36,7 @@ def sql_query(query_str: str, engine: str) -> pd.DataFrame:
 
 def extract_summ_dict(keyword_dict: dict) -> Tuple[str, bool]:
     """Extracts values from the key dictionary for .summarize_results."""
+    summary_type = save_type = remove_time = clear_summary = None
     for key, value in keyword_dict.items():
         if key == 'summary_type':
             summary_type = value
@@ -349,7 +351,7 @@ class SQLUnitTest:
         self._test_str = test_str
 
     def gather_data(self,
-                    test_string: Optional[str] = None) -> Union[pd.DataFrame, Tuple[pd.DataFrame]]:
+                    test_string: Optional[str] = None) -> Union[P, Tuple[P]]:
         """
         Complete query of database.
 
@@ -500,7 +502,7 @@ class SQLUnitTest:
         print('Test for {} complete.\n'.format(test_field))
 
     def compare_ids(self, table_alias: Sequence[str], id_fields: Sequence[str],
-                    clear_results: bool = True, remove_time: bool = True) -> pd.DataFrame:
+                    clear_results: bool = True, remove_time: bool = True) -> P:
         """
         Complete a count comparison based on stored attributes and combine with a comparison of IDs.
 
@@ -614,7 +616,7 @@ class SQLUnitTest:
 
     def summarize_results(self, summary_type: str = 'both', save_type: Union[str, bool] = 'both',
                           remove_time: bool = True, clear_summary: bool = True,
-                          keyword_dict: Optional[dict] = None) -> Union[pd.DataFrame, NoReturn]:
+                          keyword_dict: Optional[dict] = None) -> P:
         """
         Format data in _summary in DataFrame and image forms.
 
@@ -703,6 +705,8 @@ class SQLUnitTest:
         if summary_type in ('both', 'data'):
             return summary
 
+U = TypeVar('U', bound=SQLUnitTest)
+
 def compare_tables(table_names: Sequence[str], table_alias: Sequence[str],
                    groupby_fields: Sequence[str], id_fields: Sequence[str],
                    db_server: str,
@@ -710,7 +714,7 @@ def compare_tables(table_names: Sequence[str], table_alias: Sequence[str],
                    low_distinct_fields: Optional[Sequence[Sequence[str]]] = None,
                    numeric_fields: Optional[Sequence[Sequence[str]]] = None,
                    save_location: Optional[str] = None, review_threshold: Union[int, float] = 2,
-                   summ_kwargs: Optional[dict] = None) -> Tuple(pd.DataFrame, SQLUnitTest):
+                   summ_kwargs: Optional[dict] = None) -> Tuple[P, U]:
     """
     Run data comparison tests between tables.
 
