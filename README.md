@@ -77,6 +77,16 @@ A summarized version of results (as a DataFrame or image), indicating the percen
   <img src="img/results.png">
 </p>
 
+### Confirm Shared IDs
+As further confirmation that are tables are replicas of each other, we may also test whether the IDs in one table are the same as the IDs in the other table.
+
+We can use the .compare_ids method to compare between two tables at a time.
+
+**Results**
+<p align="center">
+  <img src="img/compare_ids.PNG">
+</p>
+
 ## Setup
 The files `sql_secrets.py` and `sql_config.py` provide examples of how the SQLAlchemy engines can be configured. These files should be customized for personal use.
 

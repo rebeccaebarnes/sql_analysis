@@ -198,17 +198,18 @@ class SQLUnitTest:
     Complete SQL queries and equality comparisons between database tables.
 
     Parameters:
-        comparison_fields: (list-like) Name of field to be queried for each table.
-                          The target table should be listed first.
-        groupby_fields: (list-like) Name of field used to group for each table.
-                        Field order should be consistent with that of 'comparison_fields'.
         table_names: (list-like) Name of each database table to be queried.
-                     Name order should be consistent with that of 'comparison_fields'.
+                     The first table entered will be used as the "template" table.
         table_alias: (list-like) Alias string for each database table to be queried.
-                     Each alias must be a single word containing no '_'.
-                     Alias order should be consistent with that of 'comparison_fields'.
+                     Each alias must be a single word containing no underscores.
+                     Alias order should be consistent with that of 'table_names'.
+        groupby_fields: (list-like) Name of field used to group for each table.
+                        Field order should be consistent with that of 'table_names'.
+        comparison_fields: (list-like) Name of field to be queried for each table.
+                          Field order should be consistent with that of 'table_names'.
         db_server: (str) Server alias, as specified by DB_ENG.
         test_type: {'count', 'low_distinct', 'high_distinct', 'numeric', 'id_check'}.
+                   See .create_test_string method for more details on test types.
         save_location: (optional, str) Folder directory for saving.
 
     Attributes:
@@ -235,8 +236,8 @@ class SQLUnitTest:
         save_results: Create folder directory as needed and save results to this location.
         compare_ids: Complete a comparison of counts and id fields.
     """
-    def __init__(self, comparison_fields, groupby_fields, table_names,
-                 table_alias, db_server, test_type, save_location=None):
+    def __init__(self, table_names, table_alias, groupby_fields,
+                 comparison_fields, db_server, test_type, save_location=None):
         test_input_ut_init(comparison_fields=comparison_fields,
                            groupby_fields=groupby_fields,
                            table_names=table_names,
@@ -401,7 +402,14 @@ class SQLUnitTest:
 
         If a test_string is provided, stores this string.
         If not, creates and stores SQL string based on stored comparison,
-        gropuby, table names, table alias, and test type attributes.
+        gropuby, table names, table alias, and test type attributes. The tests
+        segment results based on the values found in the groupby fields. Five test
+        tests are managed:
+            count: counts the number of rows
+            high_distinct: counts the number of distinct values
+            low_distinct: counts row by the list of values in the field
+            numeric: sums the values (Nulls are replaced with 'Unknown' for joining)
+            id_check: collects all rows for the groupby and id fields
 
         Parameters:
             test_string: (optional, str) Custom SQL query string.
