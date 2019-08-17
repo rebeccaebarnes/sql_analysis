@@ -8,16 +8,18 @@ The :mod:`sql_analysis` module gathers and assesses data from SQL databases.
 from datetime import datetime
 import os
 from time import time
+from typing import NoReturn, Optional, Sequence, Tuple, Union
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import sql_config as sqlc
+import sql_input_tests as sqlit
 
 
 DB_ENG = sqlc.DB_ENG
 
-def sql_query(query_str, engine):
+def sql_query(query_str: str, engine: str) -> pd.DataFrame:
     """
     Complete database query using pandas.read_sql.
 
@@ -28,170 +30,22 @@ def sql_query(query_str, engine):
     Returns:
         Pandas DataFrame.
     """
-    # Confirm engine in DB_ENG
-    if engine not in DB_ENG.keys():
-        raise ValueError(
-            "The value for 'engine' is not valid. "
-            "Use a value from {}.".format(DB_ENG.keys())
-        )
-
-    # Confirm query is st
-    test_input_string(query_str)
 
     return pd.read_sql(query_str, DB_ENG[engine])
 
-def test_input_string(string_var):
-    """Test whether input is <str>."""
-    if not isinstance(string_var, str):
-        raise TypeError(
-            "'test_string' must be of type <str>. "
-            "Current type is {}".format(type(string_var))
-        )
+def extract_summ_dict(keyword_dict: dict) -> Tuple[str, bool]:
+    """Extracts values from the key dictionary for .summarize_results."""
+    for key, value in keyword_dict.items():
+        if key == 'summary_type':
+            summary_type = value
+        if key == 'save_type':
+            save_type = value
+        if key == 'remove_time':
+            remove_time = value
+        if key == 'clear_summary':
+            clear_summary = value
 
-def test_input_ut_init(comparison_fields, groupby_fields,
-                       table_names, table_alias, test_type,
-                       db_server, save_location):
-    """Test inputs for SQLUnitTest instantiation."""
-    # Confirm minimum two fields
-    if len(comparison_fields) < 2:
-        raise ValueError(
-            "Minimum length for 'comparison_fields' is 2:"
-            " one field for each of at least two tables."
-            )
-
-    # Confirm equal field length
-    for field, name in zip((groupby_fields, table_names, table_alias),
-                           ('groupby_fields', 'table_names', 'table_alias')):
-        if len(comparison_fields) != len(field):
-            raise ValueError(
-                "All field lists must have the same length."
-                "The length of the 'comparison_fields'"
-                "does not match the length of '{}' (len = {}).".format(name, len(field))
-                )
-
-    # Check collections
-    for field, name in zip((comparison_fields, groupby_fields, table_names, table_alias),
-                           ('comparison_fields', 'groupby_fields', 'table_names', 'table_alias')):
-        if not isinstance(field, (tuple, list)):
-            raise TypeError(
-                "A list-like collection must be used for database info fields."
-                " A {} object was entered for '{}'.".format(type(field), name)
-                )
-        for value in field:
-            if not isinstance(value, str):
-                raise TypeError(
-                    "All values in collection inputs must be of type <str>. "
-                    "{} from {} is of {} type.".format(value, name, type(value))
-                )
-
-    # Confirm test_type
-    test_types = ('count', 'low_distinct', 'high_distinct', 'numeric', 'id_check')
-    if test_type not in test_types:
-        raise ValueError(
-            "The current value for 'test_type' is {} and is not a valid test type. "
-            "Use a value from {}.".format(test_type, test_types)
-            )
-    # Confirm db_server in DB_ENG
-    if db_server not in DB_ENG.keys():
-        raise ValueError(
-            "The value for 'db_server' is not valid. "
-            "Use a value from {}.".format(DB_ENG.keys())
-        )
-
-    # Check save_location
-    if save_location:
-        test_input_string(save_location)
-        split_test = save_location.split('\\')
-        if len(split_test) > 1:
-            raise ValueError(
-                "Save location must use / instead of "
-                "\\ to indicate sub-directories."
-                )
-
-def test_input_ut_runtest(review_threshold, test_type):
-    """Test inputs for SQLUnitTest run_test method."""
-    if not isinstance(review_threshold, (int, float)):
-        raise TypeError(
-            "The value for 'review_threshold' must be numeric. "
-            "{} is {}.".format(review_threshold, type(review_threshold))
-        )
-
-    if test_type == 'id_check':
-        raise ValueError(
-            "The 'run_test' method cannot be used to complete the 'id_check' test. "
-            "Please use the 'compare_ids' method instead."
-        )
-
-def test_input_ut_ids(table_alias, id_fields, clear_results, remove_time):
-    """Test inputs for SQLUnitTest compare_ids method."""
-    for field, name in zip((id_fields, table_alias), ('id_fields', 'table_alias')):
-        # Only two fields for each
-        if len(field) != 2:
-            raise ValueError(
-                "Only two fields can be compared at a time for 'compare_ids'. "
-                "{} has len = {}.".format(name, len(field))
-                )
-        # Check for collections
-        if not isinstance(field, (tuple, list)):
-            raise TypeError(
-                "A list-like collection must be used for database info fields."
-                " A {} object was entered for {}.".format(type(field), name)
-                )
-        # Collect values are strings
-        for value in field:
-            if not isinstance(value, str):
-                raise TypeError(
-                    "All values in collection inputs must be of type <str>. "
-                    "{} in {} is of {} type.".format(value, name, type(value))
-                )
-
-    # Test remove_results and remove_time
-    for field in (clear_results, remove_time):
-        if not isinstance(field, bool):
-            raise TypeError(
-                "Values for both 'clear_results' and 'remove_time' must be of type <bool>."
-            )
-def test_input_ut_summ(summary_type, save_type, remove_time, keyword_dict, save_location,
-                       clear_summary):
-    """Test inputs for SQLUnitTest summarize_results method."""
-    summary_types = ('data', 'image', 'both')
-    if summary_type not in summary_types:
-        raise ValueError(
-            "Value for 'summary_type' ({}) must be in {}.".format(summary_type, summary_types)
-        )
-
-    save_types = ('data', 'image', 'both', False)
-    if save_type not in save_types:
-        raise ValueError(
-            "Value for 'save_type' ({}) must be in {}.".format(save_type, save_types)
-        )
-
-    if summary_types != save_types:
-        if (summary_type == 'image' and save_type in ('both', 'data')) \
-           or (summary_type == 'data') and save_type in ('both', 'image'):
-            raise ValueError(
-                "'save_type' must match or be encompassed by 'summary_type'."
-            )
-
-    for field, name in zip((remove_time, clear_summary), ('remove_time', 'clear_summary')):
-        if not isinstance(field, bool):
-            raise TypeError(
-                "Value for '{}' must be of type <bool>. Current type is {}."\
-                .format(name, type(field))
-            )
-
-    if keyword_dict:
-        if not isinstance(keyword_dict, dict):
-            raise TypeError(
-                "Value for 'keyword_dict' must be of type <dict>. Current type is {}."\
-                .format(type(keyword_dict))
-            )
-
-    if save_type:
-        if not save_location:
-            raise AttributeError(
-                "Unable to save results, the 'save_location' attribute is empty."
-                )
+    return summary_type, save_type, remove_time, clear_summary
 
 class SQLUnitTest:
     """
@@ -236,15 +90,16 @@ class SQLUnitTest:
         save_results: Create folder directory as needed and save results to this location.
         compare_ids: Complete a comparison of counts and id fields.
     """
-    def __init__(self, table_names, table_alias, groupby_fields,
-                 comparison_fields, db_server, test_type, save_location=None):
-        test_input_ut_init(comparison_fields=comparison_fields,
-                           groupby_fields=groupby_fields,
-                           table_names=table_names,
-                           table_alias=table_alias,
-                           db_server=db_server,
-                           test_type=test_type,
-                           save_location=save_location)
+    def __init__(self, table_names: Sequence[str], table_alias: Sequence[str],
+                 groupby_fields: Sequence[str], comparison_fields: Sequence[str],
+                 db_server: str, test_type: str, save_location: Optional[str] = None) -> NoReturn:
+        sqlit.test_input_ut_init(comparison_fields=comparison_fields,
+                                 groupby_fields=groupby_fields,
+                                 table_names=table_names,
+                                 table_alias=table_alias,
+                                 db_server=db_server,
+                                 test_type=test_type,
+                                 save_location=save_location)
 
         self.comparison_fields = comparison_fields
         self.groupby_fields = groupby_fields
@@ -396,7 +251,7 @@ class SQLUnitTest:
 
         self._test_str = (target_str, source_str)
 
-    def create_test_string(self, test_string=None):
+    def create_test_string(self, test_string: Optional[str] = None) -> str:
         """
         Create SQL query string.
 
@@ -419,7 +274,6 @@ class SQLUnitTest:
             self._create_id_check_string()
             return
         if test_string:
-            test_input_string(string_var=test_string)
             self._test_str = test_string
 
         # Or create initial test string
@@ -494,7 +348,8 @@ class SQLUnitTest:
                     + joins + order
         self._test_str = test_str
 
-    def gather_data(self, test_string=None):
+    def gather_data(self,
+                    test_string: Optional[str] = None) -> Union[pd.DataFrame, Tuple[pd.DataFrame]]:
         """
         Complete query of database.
 
@@ -524,7 +379,8 @@ class SQLUnitTest:
         self._results = result
         return result
 
-    def _assess_priority_review(self, table_alias, assess_col, review_threshold):
+    def _assess_priority_review(self, table_alias: Sequence[str], assess_col: str,
+                                review_threshold: Union[int, float]) -> str:
         """
         Assess for field with missing values or high discrepancies in values.
 
@@ -548,7 +404,7 @@ class SQLUnitTest:
             print(assessment)
             return assessment
 
-    def save_results(self, index=False):
+    def save_results(self, index: bool = False) -> NoReturn:
         """
         Create folder directory based on stored save_location, current date, and test_field.
 
@@ -562,7 +418,8 @@ class SQLUnitTest:
         file_name = '/' + self.comparison_fields[0] + '.csv'
         self._results.to_csv(folder_name + file_name, index=index)
 
-    def run_test(self, test_string=None, review_threshold=2):
+    def run_test(self, test_string: Optional[str] = None,
+                 review_threshold: Union[int, float] = 2) -> NoReturn:
         """
         Run equality comparisons between the comparison_fields.
 
@@ -578,7 +435,7 @@ class SQLUnitTest:
                               percentage, above which differences in values will
                               be flagged for priority review.
         """
-        test_input_ut_runtest(review_threshold=review_threshold, test_type=self.test_type)
+        sqlit.test_input_ut_runtest(self.test_type)
 
         print('Commencing {} test for {}...'.format(self.test_type, self.comparison_fields[0]))
         self._results = self.gather_data(test_string=test_string)
@@ -642,7 +499,8 @@ class SQLUnitTest:
             self.save_results()
         print('Test for {} complete.\n'.format(test_field))
 
-    def compare_ids(self, table_alias, id_fields, clear_results=True, remove_time=True):
+    def compare_ids(self, table_alias: Sequence[str], id_fields: Sequence[str],
+                    clear_results: bool = True, remove_time: bool = True) -> pd.DataFrame:
         """
         Complete a count comparison based on stored attributes and combine with a comparison of IDs.
 
@@ -658,9 +516,11 @@ class SQLUnitTest:
                            it is recommended to clear results.)
             remove_time: (optional, bool, default=True) If True, if groupby field is a
                          datetime field, then the time component is removed.
+        Returns:
+            results: (Pandas DataFrame) Shows summary of count differences and contains
+                     lists of missing ids and the number of missing ids.
         """
-        test_input_ut_ids(table_alias=table_alias, id_fields=id_fields,
-                          clear_results=clear_results, remove_time=remove_time)
+        sqlit.test_input_ut_ids(table_alias=table_alias, id_fields=id_fields)
 
         # Update for test type
         self.test_type = 'id_check'
@@ -752,8 +612,9 @@ class SQLUnitTest:
 
         return results
 
-    def summarize_results(self, summary_type='both', save_type='both', remove_time=True,
-                          clear_summary=True, keyword_dict=None):
+    def summarize_results(self, summary_type: str = 'both', save_type: Union[str, bool] = 'both',
+                          remove_time: bool = True, clear_summary: bool = True,
+                          keyword_dict: Optional[dict] = None) -> Union[pd.DataFrame, NoReturn]:
         """
         Format data in _summary in DataFrame and image forms.
 
@@ -781,25 +642,16 @@ class SQLUnitTest:
             keyword_dict: (optional, dict) Allows for passing of arguments via
                           dictionary. If keyword_dict is used, no values should
                           be provided for the other parameters.
+        Returns:
+            summary: (Pandas DataFrame) Returns if 'summary_type' is 'data' or 'both'.
         """
         # Manage keyword dict
         if keyword_dict:
-            for key, value in keyword_dict.items():
-                if key == 'summary_type':
-                    summary_type = value
-                if key == 'save_type':
-                    save_type = value
-                if key == 'remove_time':
-                    remove_time = value
-                if key == 'clear_summary':
-                    clear_summary = value
+            summary_type, save_type, remove_time, clear_summary = extract_summ_dict(keyword_dict)
 
-        test_input_ut_summ(summary_type=summary_type,
-                           save_type=save_type,
-                           remove_time=remove_time,
-                           keyword_dict=keyword_dict,
-                           save_location=self.save_location,
-                           clear_summary=clear_summary)
+        sqlit.test_input_ut_summ(summary_type=summary_type,
+                                 save_type=save_type,
+                                 save_location=self.save_location)
 
         # Set index for summary df
         summary_field = self.groupby_fields[0]
@@ -851,47 +703,14 @@ class SQLUnitTest:
         if summary_type in ('both', 'data'):
             return summary
 
-def test_input_comp_tables(high_distinct_fields, low_distinct_fields,
-                           numeric_fields, save_location, summ_kwargs):
-    """Test inputs for compare_tables."""
-    # Test collections
-    for test_fields, name in zip((high_distinct_fields,
-                                  low_distinct_fields,
-                                  numeric_fields),
-                                 ('high_distinct_fields',
-                                  'low_distinct_fields',
-                                  'numeric_fields')):
-        if test_fields:
-            if not isinstance(test_fields, (list, tuple)):
-                raise TypeError(
-                    "The parameter {} must be of type <list> or <tuple>. "
-                    "Current type is {}".format(name, type(test_fields))
-                )
-            for comparison_fields in test_fields:
-                if not isinstance(test_fields, (list, tuple)):
-                    raise TypeError(
-                        "The objects in {} must be of type <list> or <tuple>. "
-                        "At least one object is {}".format(name, type(comparison_fields))
-                    )
-                for value in comparison_fields:
-                    test_input_string(value)
-
-    # Test save location has been included if required
-    if not summ_kwargs and not save_location:
-        raise AttributeError(
-            "Unable to save results, the 'save_location' attribute is empty."
-        )
-    if summ_kwargs:
-        for key, value in summ_kwargs.items():
-            if key == 'save_type' and value and not save_location:
-                raise AttributeError(
-                    "Unable to save results, the 'save_location' attribute is empty."
-                )
-
-def compare_tables(table_names, table_alias, groupby_fields, id_fields,
-                   db_server, high_distinct_fields=None, low_distinct_fields=None,
-                   numeric_fields=None, save_location=None, review_threshold=2,
-                   summ_kwargs=None):
+def compare_tables(table_names: Sequence[str], table_alias: Sequence[str],
+                   groupby_fields: Sequence[str], id_fields: Sequence[str],
+                   db_server: str,
+                   high_distinct_fields: Optional[Sequence[Sequence[str]]] = None,
+                   low_distinct_fields: Optional[Sequence[Sequence[str]]] = None,
+                   numeric_fields: Optional[Sequence[Sequence[str]]] = None,
+                   save_location: Optional[str] = None, review_threshold: Union[int, float] = 2,
+                   summ_kwargs: Optional[dict] = None) -> Tuple(pd.DataFrame, SQLUnitTest):
     """
     Run data comparison tests between tables.
 
@@ -933,10 +752,7 @@ def compare_tables(table_names, table_alias, groupby_fields, id_fields,
         tester: (class SQLUnitTest) Object to provide access to exception and
                                     priority review logs.
     """
-    test_input_comp_tables(high_distinct_fields=high_distinct_fields,
-                           low_distinct_fields=low_distinct_fields,
-                           numeric_fields=numeric_fields,
-                           save_location=save_location, summ_kwargs=summ_kwargs)
+    sqlit.test_input_comp_tables(save_location=save_location, summ_kwargs=summ_kwargs)
 
     tester = SQLUnitTest(comparison_fields=id_fields,
                          groupby_fields=groupby_fields,
