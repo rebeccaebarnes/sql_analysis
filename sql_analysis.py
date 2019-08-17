@@ -700,9 +700,10 @@ class SQLUnitTest:
         self._results.index = self._results[self.groupby_fields[0]]
         self._results.drop(self.groupby_fields[0], axis=1, inplace=True)
 
-        # Compare ids
+        # Set up columns to store lists
         target_in_source_name = table_alias[0] + '_missing_in_' + table_alias[1]
         source_in_target_name = table_alias[1] + '_missing_in_' + table_alias[0]
+        # Compare ids
         for ind in self._results.index:
             print("Commencing ID comparison for", ind, "...")
             try:
@@ -721,13 +722,19 @@ class SQLUnitTest:
                 missing_source_ids = \
                 source_df.loc[~source_in_target & is_ind_source, source_id].values
                 # Store id values and counts in results
-                self._results.loc[ind, target_in_source_name] = \
-                ", ".join(str(missing_target_ids).strip('[] ').split())
-                self._results.loc[ind, 'missing_' + table_alias[0] + '_ids'] = \
+                if target_in_source_name not in self._results.columns:
+                    self._results[target_in_source_name] = np.nan
+                    self._results[target_in_source_name] = self._results[target_in_source_name]\
+                                                           .astype(object)
+                self._results.at[ind, target_in_source_name] = missing_target_ids
+                self._results.at[ind, 'missing_' + table_alias[0] + '_ids'] = \
                 missing_target_ids.shape[0]
-                self._results.loc[ind, source_in_target_name] = \
-                ", ".join(str(missing_source_ids).strip('[] ').split())
-                self._results.loc[ind, 'missing_' + table_alias[1] + '_ids'] = \
+                if source_in_target_name not in self._results.columns:
+                    self._results[source_in_target_name] = np.nan
+                    self._results[source_in_target_name] = self._results[source_in_target_name]\
+                                                           .astype(object)
+                self._results.at[ind, source_in_target_name] = missing_source_ids
+                self._results.at[ind, 'missing_' + table_alias[1] + '_ids'] = \
                 missing_source_ids.shape[0]
             except Exception as e:
                 self._exceptions['missing_id_' + str(ind)] = e
@@ -738,9 +745,12 @@ class SQLUnitTest:
         if self.save_location:
             self.save_results(index=True)
 
+        results = self._results
         # Check to clear results
         if clear_results:
             self._results = None
+
+        return results
 
     def summarize_results(self, summary_type='both', save_type='both', remove_time=True,
                           clear_summary=True, keyword_dict=None):
