@@ -47,7 +47,7 @@ def test_input_init(table_names: Sequence, table_alias: Sequence,
     # Confirm test_type and db_server
     test_types = ('count', 'low_distinct', 'high_distinct', 'numeric', 'id_check')
     test_in_collection(test_type, test_types, 'test_type')
-    test_in_collection(db_server, DB_ENG.keys(), 'database engine')
+    test_in_collection(db_server, list(DB_ENG.keys()), 'database engine')
 
     # Check save_location
     if save_location:
