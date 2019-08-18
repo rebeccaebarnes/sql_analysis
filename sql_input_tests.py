@@ -25,10 +25,10 @@ def no_save_location() -> NoReturn:
         "to adjust the summary save options."
         )
 
-def test_input_ut_init(table_names: Sequence, table_alias: Sequence,
-                       groupby_fields: Sequence, comparison_fields: Sequence,
-                       db_server: str, test_type: str, save_location: Optional[str]) -> NoReturn:
-    """Test inputs for SQLUnitTest instantiation."""
+def test_input_init(table_names: Sequence, table_alias: Sequence,
+                    groupby_fields: Sequence, comparison_fields: Sequence,
+                    db_server: str, test_type: str, save_location: Optional[str]) -> NoReturn:
+    """Test inputs for SQLTest instantiation."""
     # Confirm minimum two fields
     if len(table_names) < 2:
         raise ValueError(
@@ -57,16 +57,16 @@ def test_input_ut_init(table_names: Sequence, table_alias: Sequence,
                 "Save location must use / instead of \\ to indicate sub-directories."
                 )
 
-def test_input_ut_runtest(test_type: str) -> NoReturn:
-    """Test inputs for SQLUnitTest run_test method."""
+def test_input_runtest(test_type: str) -> NoReturn:
+    """Test inputs for SQLTest run_test method."""
     if test_type == 'id_check':
         raise ValueError(
             "The 'run_test' method cannot be used to complete the 'id_check' test. "
             "Please use the 'compare_ids' method instead."
         )
 
-def test_input_ut_ids(table_alias: Sequence, id_fields: Sequence) -> NoReturn:
-    """Test inputs for SQLUnitTest compare_ids method."""
+def test_input_ids(table_alias: Sequence, id_fields: Sequence) -> NoReturn:
+    """Test inputs for SQLTest compare_ids method."""
     for field, name in zip((id_fields, table_alias), ('id_fields', 'table_alias')):
         # Only two fields for each
         if len(field) != 2:
@@ -75,9 +75,9 @@ def test_input_ut_ids(table_alias: Sequence, id_fields: Sequence) -> NoReturn:
                 "{} contains {} values.".format(name, len(field))
                 )
 
-def test_input_ut_summ(summary_type: str, save_type: Union[str, bool],
-                       save_location: Optional[str]) -> NoReturn:
-    """Test inputs for SQLUnitTest summarize_results method."""
+def test_input_summ(summary_type: str, save_type: Union[str, bool],
+                    save_location: Optional[str]) -> NoReturn:
+    """Test inputs for SQLTest summarize_results method."""
     # Test collections
     summary_types = ('data', 'image', 'both')
     test_in_collection(summary_type, summary_types, 'summary_type')
@@ -97,8 +97,8 @@ def test_input_ut_summ(summary_type: str, save_type: Union[str, bool],
         if not save_location:
             no_save_location()
 
-def test_input_comp_tables(save_location: Optional[str],
-                           summ_kwargs: Optional[dict]) -> NoReturn:
+def comp_tables_input(save_location: Optional[str],
+                      summ_kwargs: Optional[dict]) -> NoReturn:
     """Test inputs for compare_tables."""
     # Test save location has been included if required
     if not summ_kwargs and not save_location:

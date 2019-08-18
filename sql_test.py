@@ -153,7 +153,7 @@ def collect_field_names(table_names: Sequence[str], engine: str) -> Sequence[Seq
 
     return table_fields
 
-class SQLUnitTest:
+class SQLTest:
     """
     Complete SQL queries and equality comparisons between database tables.
 
@@ -199,13 +199,13 @@ class SQLUnitTest:
     def __init__(self, table_names: Sequence[str], table_alias: Sequence[str],
                  groupby_fields: Sequence[str], comparison_fields: Sequence[str],
                  db_server: str, test_type: str, save_location: Optional[str] = None) -> NoReturn:
-        sqlit.test_input_ut_init(comparison_fields=comparison_fields,
-                                 groupby_fields=groupby_fields,
-                                 table_names=table_names,
-                                 table_alias=table_alias,
-                                 db_server=db_server,
-                                 test_type=test_type,
-                                 save_location=save_location)
+        sqlit.test_input_init(comparison_fields=comparison_fields,
+                              groupby_fields=groupby_fields,
+                              table_names=table_names,
+                              table_alias=table_alias,
+                              db_server=db_server,
+                              test_type=test_type,
+                              save_location=save_location)
 
         self.comparison_fields = comparison_fields
         self.groupby_fields = groupby_fields
@@ -541,7 +541,7 @@ class SQLUnitTest:
                               percentage, above which differences in values will
                               be flagged for priority review.
         """
-        sqlit.test_input_ut_runtest(self.test_type)
+        sqlit.test_input_runtest(self.test_type)
 
         print('Commencing {} test for {}...'.format(self.test_type, self.comparison_fields[0]))
         self._results = self.gather_data(test_string=test_string)
@@ -626,7 +626,7 @@ class SQLUnitTest:
             results: (Pandas DataFrame) Shows summary of count differences and contains
                      lists of missing ids and the number of missing ids.
         """
-        sqlit.test_input_ut_ids(table_alias=table_alias, id_fields=id_fields)
+        sqlit.test_input_ids(table_alias=table_alias, id_fields=id_fields)
 
         # Update for test type
         self.test_type = 'id_check'
@@ -755,7 +755,7 @@ class SQLUnitTest:
         if keyword_dict:
             summary_type, save_type, remove_time, clear_summary = extract_summ_dict(keyword_dict)
 
-        sqlit.test_input_ut_summ(summary_type=summary_type,
+        sqlit.test_input_summ(summary_type=summary_type,
                                  save_type=save_type,
                                  save_location=self.save_location)
 
@@ -809,7 +809,7 @@ class SQLUnitTest:
         if summary_type in ('both', 'data'):
             return summary
 
-U = TypeVar('U', bound=SQLUnitTest)
+U = TypeVar('U', bound=SQLTest)
 
 def compare_tables(table_names: Sequence[str], table_alias: Sequence[str],
                    groupby_fields: Sequence[str],
@@ -856,15 +856,15 @@ def compare_tables(table_names: Sequence[str], table_alias: Sequence[str],
         tester: (class SQLUnitTest) Object to provide access to exception and
                                     priority review logs.
     """
-    sqlit.test_input_comp_tables(save_location=save_location, summ_kwargs=summ_kwargs)
+    sqlit.comp_tables_input(save_location=save_location, summ_kwargs=summ_kwargs)
 
-    tester = SQLUnitTest(comparison_fields=id_fields,
-                         groupby_fields=groupby_fields,
-                         table_names=table_names,
-                         table_alias=table_alias,
-                         db_server=db_server,
-                         test_type='count',
-                         save_location=save_location)
+    tester = SQLTest(comparison_fields=id_fields,
+                     groupby_fields=groupby_fields,
+                     table_names=table_names,
+                     table_alias=table_alias,
+                     db_server=db_server,
+                     test_type='count',
+                     save_location=save_location)
 
     tester.run_test(review_threshold=review_threshold)
 

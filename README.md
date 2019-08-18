@@ -1,12 +1,12 @@
-# SQL Analysis
+# SQL Test
 
-The SQL Analysis module assists in testing of data between SQL database tables. This is the development version of the module.
+The SQL Test module assists in testing of data between SQL database tables. This is the development version of the module.
 
 Use examples include comparing data in a view to those in a table derived from a star schema, or comparing results from a table derived from an external source to a table built via ETL.
 
 ## Main Features
 
-- **Class: SQLUnitTest**
+- **Class: SQLTest**
     1. Creates and runs SQL database queries based on attributes provided with class instantiation or custom SQL query string.
     2. Completes five built in tests based on field-type categorizations of `count`, `low_distinct`, `high_distinct`, `numeric`, `id_check`.
     3. Flags fields above a specified difference threshold for "priority review".
@@ -93,6 +93,7 @@ The files `sql_secrets.py` and `sql_config.py` provide examples of how the SQLAl
 
 ## Dependencies
 This module utilizes:
+- Python v 3.5+
 - [SQLAlchemy](https://www.sqlalchemy.org/)
 - [pandas](https://pandas.pydata.org/)
 - [NumPy](https://numpy.org/)
