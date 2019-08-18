@@ -37,7 +37,7 @@ def sql_query(query_str: str, engine: str) -> P:
 
 def extract_summ_dict(keyword_dict: dict) -> Tuple[str, bool]:
     """Extracts values from the key dictionary for .summarize_results."""
-    summary_type = save_type = remove_time = clear_summary = None
+    summary_type = save_type = remove_time = None
     for key, value in keyword_dict.items():
         if key == 'summary_type':
             summary_type = value
@@ -45,10 +45,8 @@ def extract_summ_dict(keyword_dict: dict) -> Tuple[str, bool]:
             save_type = value
         if key == 'remove_time':
             remove_time = value
-        if key == 'clear_summary':
-            clear_summary = value
 
-    return summary_type, save_type, remove_time, clear_summary
+    return summary_type, save_type, remove_time
 
 def detect_field_type(table_name: str, field_name: str, engine: str,
                       low_distinct_thresh: int = 10) -> str:
@@ -190,6 +188,8 @@ class SQLTest:
         can be cleared prior to pickling with no adverse affects.
 
     Methods:
+        update: Update class attributes.
+        clear_private_attr: Clears all private attributes except dates.
         create_test_string: Create SQL query string from specified inputs.
         gather_data: Complete database query based on specified SQL string.
         run_test: Complete the equality comparison between the '_count' columns.
@@ -221,6 +221,22 @@ class SQLTest:
         self._priority_review = {}
         self._today_date = datetime.today().strftime('%y%m%d')
         self._alt_date = datetime.today().strftime('%d-%b-%y')
+
+    def update(self, keyword_dict: dict) -> NoReturn:
+        """Update class attributes with test validation."""
+        for key, value in keyword_dict.items():
+            setattr(self, key, value)
+        sqlit.test_input_init(self.table_names, self.table_alias, self.groupby_fields,
+                              self.comparison_fields, self.db_server, self.test_type,
+                              self.save_location)
+
+    def clear_private_attr(self) -> NoReturn:
+        """Clear _test_str, _results, _summary, _exceptions, _priority_review attributes."""
+        self._test_str = None
+        self._results = None
+        self._summary = None
+        self._exceptions = None
+        self._priority_review = None
 
     def _create_count_string(self):
         """
@@ -606,7 +622,7 @@ class SQLTest:
         print('Test for {} complete.\n'.format(test_field))
 
     def compare_ids(self, table_alias: Sequence[str], id_fields: Sequence[str],
-                    clear_results: bool = True, remove_time: bool = True) -> P:
+                    remove_time: bool = True) -> P:
         """
         Complete a count comparison based on stored attributes and combine with a comparison of IDs.
 
@@ -617,9 +633,6 @@ class SQLTest:
                          "Target" table must be listed first.
             id_fields: (list-like) Names of ID fields to compare.
                        "Target" table field must be listed first.
-            clear_results: (optional, bool, default=True) If True, clear _results.
-                           If False, retains results. (If moving on to other tests
-                           it is recommended to clear results.)
             remove_time: (optional, bool, default=True) If True, if groupby field is a
                          datetime field, then the time component is removed.
         Returns:
@@ -711,16 +724,10 @@ class SQLTest:
         if self.save_location:
             self.save_results(index=True)
 
-        results = self._results
-        # Check to clear results
-        if clear_results:
-            self._results = None
-
-        return results
+        return self._results
 
     def summarize_results(self, summary_type: str = 'both', save_type: Union[str, bool] = 'both',
-                          remove_time: bool = True, clear_summary: bool = True,
-                          keyword_dict: Optional[dict] = None) -> P:
+                          remove_time: bool = True, keyword_dict: Optional[dict] = None) -> P:
         """
         Format data in _summary in DataFrame and image forms.
 
@@ -742,9 +749,6 @@ class SQLTest:
             remove_time: (optional, boolean, default=True) If the values in the
                          groupby fields are of type <datetime>, if True, converts
                          the type to <date>.
-            clear_summary: (optional, boolean, default=True) Indicates whether
-                           _summary should be cleared after analysis. If True,
-                           the _summary attribute will be cleared.
             keyword_dict: (optional, dict) Allows for passing of arguments via
                           dictionary. If keyword_dict is used, no values should
                           be provided for the other parameters.
@@ -756,8 +760,8 @@ class SQLTest:
             summary_type, save_type, remove_time, clear_summary = extract_summ_dict(keyword_dict)
 
         sqlit.test_input_summ(summary_type=summary_type,
-                                 save_type=save_type,
-                                 save_location=self.save_location)
+                              save_type=save_type,
+                              save_location=self.save_location)
 
         # Set index for summary df
         summary_field = self.groupby_fields[0]
@@ -802,12 +806,8 @@ class SQLTest:
                             bbox_inches='tight')
             plt.show()
 
-        summary = self._summary.copy()
-
-        if clear_summary:
-            self._summary = None
         if summary_type in ('both', 'data'):
-            return summary
+            return self._summary
 
 U = TypeVar('U', bound=SQLTest)
 
