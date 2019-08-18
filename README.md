@@ -14,7 +14,8 @@ Use examples include comparing data in a view to those in a table derived from a
     5. Saves results and summary as specified.
 
 - **Function: compare_tables**
-    1. Utilizes methods of SQLUnitTest to complete a full comparison of table values.
+    1. Auto-detects the type of test to be run.
+    2. Utilizes methods of SQLUnitTest to complete a full comparison of table values.
 
 - **Function: sql_query**
     1. Conducts basic database queries

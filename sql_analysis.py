@@ -4,7 +4,7 @@
 """
 The :mod:`sql_analysis` module gathers and assesses data from SQL databases.
 """
-
+from collections import namedtuple
 from datetime import datetime
 import os
 from time import time
@@ -19,6 +19,7 @@ import sql_input_tests as sqlit
 
 DB_ENG = sqlc.DB_ENG
 P = TypeVar('P', bound=pd.DataFrame)
+FieldList = namedtuple('FieldList', ['test_type', 'field_names'])
 
 def sql_query(query_str: str, engine: str) -> P:
     """
@@ -48,6 +49,109 @@ def extract_summ_dict(keyword_dict: dict) -> Tuple[str, bool]:
             clear_summary = value
 
     return summary_type, save_type, remove_time, clear_summary
+
+def detect_field_type(table_name: str, field_name: str, engine: str,
+                      low_distinct_thresh: int = 10) -> str:
+    """"
+    Determine the test type to be used on a database table.
+
+    Parameters:
+        table_name: (str) Name of the database table.
+        field_name: (str) Name of the field to test.
+        engine: (str) Server type to use from options of DB_ENG.keys().
+        low_distinct_thresh: (optional, int, default=10) Number of distinct values
+                             at which a field will be classified as low_distinct
+                             test type.
+    Returns:
+        test_type: (str, {'numeric', 'high_distinct', 'low_distinct'})
+    """
+    sqlit.test_in_collection(engine, list(DB_ENG.keys()), 'database engine')
+    query_str = "SELECT {field_name} FROM {table_name}"
+
+    query_str = query_str.format(field_name=field_name,
+                                 table_name=table_name)
+    df = sql_query(query_str, engine)
+
+    if np.issubdtype(df[field_name].dtype, np.number):
+        test_type = 'numeric'
+    elif df[field_name].nunique() > low_distinct_thresh:
+        test_type = 'high_distinct'
+    else:
+        test_type = 'low_distinct'
+
+    return test_type
+
+def collect_field_type(table_name: str, field_names: Sequence[str], engine: str,
+                       low_distinct_thresh: int = 10) -> namedtuple:
+    """
+    Determine test types for fields in a database table.
+
+    Parameters:
+        table_name: (str) Name of the database table.
+        field_names: (list-like) Names of the field to test.
+        engine: (str) Server type to use from options of DB_ENG.keys().
+        low_distinct_thresh: (optional, int, default=10) Number of distinct values
+                             at which a field will be classified as low_distinct
+                             test type.
+    Returns:
+        numeric, high_distinct, low_distinct: (namedtuple) Each named tuple contains
+                 the .test_type and .field_names that have been assigned to it.
+    """
+    numeric = []
+    high_distinct = []
+    low_distinct = []
+
+    for field in field_names:
+        test_type = detect_field_type(table_name, field, engine, low_distinct_thresh)
+        if test_type == 'numeric':
+            numeric.append(field)
+        if test_type == 'high_distinct':
+            high_distinct.append(field)
+        if test_type == 'low_distinct':
+            low_distinct.append(field)
+
+    # Convert to named tuples
+    numeric = FieldList('numeric', numeric)
+    high_distinct = FieldList('high_distinct', high_distinct)
+    low_distinct = FieldList('low_distinct', low_distinct)
+
+    return numeric, high_distinct, low_distinct
+
+def detect_field_names(table_name: str, engine: str) -> Sequence[str]:
+    """
+    Determine field names in a table.
+
+    Parameters:
+        table_name: (str) Name of the database table.
+        engine: (str) Server type to use from options of DB_ENG.keys().
+
+    Returns:
+        (list) Names of table fields.
+    """
+    sqlit.test_in_collection(engine, list(DB_ENG.keys()), 'database engine')
+    query_str = "SELECT * FROM {}".format(table_name)
+    df = sql_query(query_str, engine)
+
+    return df.columns.tolist()
+
+def collect_field_names(table_names: Sequence[str], engine: str) -> Sequence[Sequence[str]]:
+    """
+    Collect and group corresponding field names from database tables.
+
+    Use for 'compare_tables' requires default order of table fields to correspond
+    to each other.
+    """
+    table_collect = []
+
+    for table in table_names:
+        fields = detect_field_names(table, engine)
+        table_collect.append(fields)
+
+    table_fields = []
+    for fields in zip(*table_collect):
+        table_fields.append(fields)
+
+    return table_fields
 
 class SQLUnitTest:
     """
@@ -708,12 +812,13 @@ class SQLUnitTest:
 U = TypeVar('U', bound=SQLUnitTest)
 
 def compare_tables(table_names: Sequence[str], table_alias: Sequence[str],
-                   groupby_fields: Sequence[str], id_fields: Sequence[str],
+                   groupby_fields: Sequence[str],
+                   id_fields: Sequence[str],
+                   table_fields: Sequence[Sequence[str]],
                    db_server: str,
-                   high_distinct_fields: Optional[Sequence[Sequence[str]]] = None,
-                   low_distinct_fields: Optional[Sequence[Sequence[str]]] = None,
-                   numeric_fields: Optional[Sequence[Sequence[str]]] = None,
-                   save_location: Optional[str] = None, review_threshold: Union[int, float] = 2,
+                   save_location: Optional[str] = None,
+                   review_threshold: Union[int, float] = 2,
+                   low_distinct_thresh: int = 10,
                    summ_kwargs: Optional[dict] = None) -> Tuple[P, U]:
     """
     Run data comparison tests between tables.
@@ -731,22 +836,17 @@ def compare_tables(table_names: Sequence[str], table_alias: Sequence[str],
                         Field order should be consistent with that of 'table_names'.
         id_fields: (list-like) Name of the primary id field in each table.
                    Field order should be consistent with that of 'table_names'.
+        table_fields: (list-like) Groupings of field names. Each group has the
+                      corresponding name of the field for each table. Field order
+                      should be consistent with that of 'table_names.'
         db_server: (str) Server alias, as found in DB_ENG.keys().
-        high_distinct_fields: (optional, list-like) Collections of text field names
-                              that have many distinct values. The order of the
-                              collections within the variable should match that
-                              of 'table_names'.
-        high_distinct_fields: (optional, list-like) Collections of text field names
-                              that have few distinct values. The order of the
-                              collections within the variable should match that
-                              of 'table_names'.
-        numeric_fields: (optional, list-like) Collections of numeric field names.
-                        The order of the collections within the variable should
-                        match that of 'table_names'.
         save_location: (optional, str) Folder directory for saving.
         review_threshold: (optional, numeric, default=2) Threshold, as a
                           percentage, above which differences in values will be
                           flagged for priority review.
+        low_distinct_thresh: (optional, int, default=10) Number of distinct values
+                             at which a field will be classified as low_distinct
+                             test type.
         summ_kwargs: (optional, dict) Will be passed into SQLUnitTest.summarize_results.
 
     Returns:
@@ -768,17 +868,18 @@ def compare_tables(table_names: Sequence[str], table_alias: Sequence[str],
 
     tester.run_test(review_threshold=review_threshold)
 
-    for test_fields, test_type in zip((high_distinct_fields, low_distinct_fields, numeric_fields),
-                                      ('high_distinct', 'low_distinct', 'numeric')):
-        if test_fields:
-            tester.test_type = test_type
-            for comparison_fields in test_fields:
-                tester.comparison_fields = comparison_fields
-                try:
-                    tester.run_test(review_threshold=review_threshold)
-                except Exception as e:
-                    print('EXCEPTION:', e)
-                    tester._exceptions[comparison_fields[0]] = e
+    test_fields = [fields[0] for fields in table_fields]
+    numeric_fields, high_distinct_fields, low_distinct_fields = \
+    collect_field_type(table_names[0], test_fields, db_server, low_distinct_thresh)
+    for test_groups in (high_distinct_fields, low_distinct_fields, numeric_fields):
+        tester.test_type = test_groups.test_type
+        for field in test_groups.field_names:
+            try:
+                tester.comparison_fields = table_fields[test_fields.index(field)]
+                tester.run_test(review_threshold=review_threshold)
+            except Exception as e:
+                print('EXCEPTION:', e)
+                tester._exceptions[field] = e
 
     summary = tester.summarize_results(keyword_dict=summ_kwargs)
 
