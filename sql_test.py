@@ -8,7 +8,7 @@ from collections import namedtuple
 from datetime import datetime
 import fnmatch
 import os
-from typing import NoReturn, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Mapping, NoReturn, Optional, Sequence, Tuple, TypeVar, Union
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -469,6 +469,56 @@ class SQLTest:
         test_str += initial_select_state + selects + initial_from_state \
                     + joins + order
         self._test_str = test_str
+
+    def customize_test_string(self, insert_type: str, add_string: str, table_alias: str,
+                              format_values: Optional[Mapping[str, Any]] = None) \
+                              -> NoReturn:
+        """
+        Customize CTEs in query string created by create_test_string.
+
+        Parameters:
+            type: {'from, group_by'}: If 'from' string will be added after the
+                  FROM statement. If 'group_by' string will be added before the
+                  GROUP BY statement.
+            add_string: (str) String to insert into query string.
+            table_alias: (str) Alias of CTE in which to insert the statement.
+            format_values: (optional, dict-like) Values to add into string if
+                           '{key}' are present in 'add_string'.
+        """
+        sqlit.test_in_collection(insert_type, ['from', 'group_by'], "'insert_type'")
+        sqlit.test_in_collection(table_alias, self.table_alias, 'table alias')
+        cte_split = self._test_str.split('), ')
+
+        # Find correct cte
+        pos = 0
+        for string in cte_split:
+            if table_alias + ' AS' in string:
+                cte = string
+                break
+            pos += 1
+
+        # Establish search term
+        insert_on = 'FROM'
+        if insert_type == 'group_by':
+            insert_on = 'GROUP BY'
+
+        # Find split ind
+        ind = cte.find(insert_on)
+        if insert_type == 'from':
+            # Find the second space after FROM
+            ind += cte[ind:].find(' ') + 1
+            ind += cte[ind:].find(' ')
+
+        first_half = cte[:ind].strip()
+        second_half = cte[ind:].strip()
+
+        # Create the new CTE and swap for the old one
+        if format_values:
+            add_string = add_string.format(**format_values)
+        cte = ' '.join([first_half, add_string.strip(), second_half])
+        cte_split[pos] = cte
+
+        self._test_str = '), '.join(cte_split)
 
     def gather_data(self,
                     test_string: Optional[str] = None) -> Union[P, Tuple[P]]:
