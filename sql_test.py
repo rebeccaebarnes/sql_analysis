@@ -49,7 +49,7 @@ def extract_summ_dict(keyword_dict: dict) -> Tuple[str, bool]:
     return summary_type, save_type, remove_time
 
 def detect_field_type(table_name: str, field_name: str, engine: str,
-                      low_distinct_thresh: int = 10) -> str:
+                      low_distinct_thresh: int = 10, row_limit: int = 500) -> str:
     """"
     Determine the test type to be used on a database table.
 
@@ -64,10 +64,29 @@ def detect_field_type(table_name: str, field_name: str, engine: str,
         test_type: (str, {'numeric', 'high_distinct', 'low_distinct'})
     """
     sqlit.test_in_collection(engine, list(DB_ENG.keys()), 'database engine')
-    query_str = "SELECT {field_name} FROM {table_name}"
+    query_str = "SELECT {field_name} FROM {table_name}".format(field_name=field_name,
+                                                               table_name=table_name)
 
-    query_str = query_str.format(field_name=field_name,
-                                 table_name=table_name)
+    if row_limit:
+        dialect_name = DB_ENG[engine].dialect.name
+        if dialect_name in ('postgresql', 'mysql', 'sqlite'):
+            query_str += " LIMIT {row_limit}"
+        elif dialect_name == 'oracle':
+            query_str += " WHERE ROWNUM <= {row_limit}"
+        elif dialect_name == 'mssql':
+            query_str = ("SELECT TOP {row_limit} {field_name} FROM {table_name}"
+                         .format(field_name=field_name, table_name=table_name))
+        else:
+            raise TypeError(
+                "The '{}' dialect is not currently supported for auto-dectection. "
+                "Tests can be run by assigning test type with SQLTest. "
+                "If you would like your dialect to be supported for auto-detection "
+                "an issues flag or pull request can be made to "
+                "https://github.com/rebeccaebarnes/sql_analysis.".format(dialect_name)
+            )
+
+    query_str = query_str.format(row_limit=row_limit)
+
     df = sql_query(query_str, engine)
 
     if np.issubdtype(df[field_name].dtype, np.number):
@@ -80,7 +99,7 @@ def detect_field_type(table_name: str, field_name: str, engine: str,
     return test_type
 
 def collect_field_type(table_name: str, field_names: Sequence[str], engine: str,
-                       low_distinct_thresh: int = 10) -> namedtuple:
+                       low_distinct_thresh: int = 10, row_limit: int = 500) -> namedtuple:
     """
     Determine test types for fields in a database table.
 
@@ -99,8 +118,9 @@ def collect_field_type(table_name: str, field_names: Sequence[str], engine: str,
     high_distinct = []
     low_distinct = []
 
+    print('Commending field type detection...')
     for field in field_names:
-        test_type = detect_field_type(table_name, field, engine, low_distinct_thresh)
+        test_type = detect_field_type(table_name, field, engine, low_distinct_thresh, row_limit)
         if test_type == 'numeric':
             numeric.append(field)
         if test_type == 'high_distinct':
@@ -113,6 +133,7 @@ def collect_field_type(table_name: str, field_names: Sequence[str], engine: str,
     high_distinct = FieldList('high_distinct', high_distinct)
     low_distinct = FieldList('low_distinct', low_distinct)
 
+    print('Field type detection complete.\n')
     return numeric, high_distinct, low_distinct
 
 def detect_field_names(table_name: str, engine: str) -> Sequence[str]:
@@ -246,15 +267,15 @@ class SQLTest:
         test_str = ""
 
         # Create target CTE
-        cte_statement = "WITH {target_alias} AS (SELECT {target_groupby}, COUNT(*) AS row_count"\
-                        + " FROM {target_table} GROUP BY {target_groupby})"
+        cte_statement = ("WITH {target_alias} AS (SELECT {target_groupby}, COUNT(*) AS row_count "
+                         "FROM {target_table} GROUP BY {target_groupby})")
         test_str = cte_statement.format(target_alias=self.table_alias[0],
                                         target_groupby=self.groupby_fields[0],
                                         target_table=self.table_names[0])
 
         # Create other CTEs
-        table_cte = ", {alias} AS (SELECT {groupby}, COUNT(*) AS row_count"\
-                    + " FROM {table} GROUP BY {groupby})"
+        table_cte = (", {alias} AS (SELECT {groupby}, COUNT(*) AS row_count"
+                     " FROM {table} GROUP BY {groupby})")
         for alias, groupby_field, table in zip(self.table_alias[1:],
                                                self.groupby_fields[1:],
                                                self.table_names[1:]):
@@ -270,19 +291,19 @@ class SQLTest:
         test_str = ""
 
         # Create target CTE
-        cte_statement = "WITH {target_alias} AS (SELECT {target_groupby},"\
-                        + " COALESCE({target_compare}, 'Unknown')"\
-                        + " AS {target_compare}, COUNT(*) AS row_count"\
-                        + " FROM {target_table} GROUP BY {target_groupby}, {target_compare})"
+        cte_statement = ("WITH {target_alias} AS (SELECT {target_groupby}, "
+                         "COALESCE(CAST({target_compare} AS varchar), 'Unknown') "
+                         "AS {target_compare}, COUNT(*) AS row_count "
+                         "FROM {target_table} GROUP BY {target_groupby}, {target_compare})")
         test_str = cte_statement.format(target_alias=self.table_alias[0],
                                         target_groupby=self.groupby_fields[0],
                                         target_compare=self.comparison_fields[0],
                                         target_table=self.table_names[0])
 
         # Create other CTEs
-        table_cte = ", {alias} AS (SELECT {groupby}, COALESCE({compare}, 'Unknown')"\
-                    + " AS {compare}, "\
-                    + "COUNT(*) AS row_count FROM {table} GROUP BY {groupby}, {compare})"
+        table_cte = (", {alias} AS (SELECT {groupby}, "
+                     "COALESCE(CAST({compare} AS varchar), 'Unknown') AS {compare}, "
+                     "COUNT(*) AS row_count FROM {table} GROUP BY {groupby}, {compare})")
         for alias, groupby_field, compare_field, table in zip(self.table_alias[1:],
                                                               self.groupby_fields[1:],
                                                               self.comparison_fields[1:],
@@ -302,17 +323,17 @@ class SQLTest:
         test_str = ""
 
         # Create target CTE
-        cte_statement = "WITH {target_alias} AS (SELECT {target_groupby}, "\
-                        + "COUNT(DISTINCT {target_compare}) AS row_count"\
-                        + " FROM {target_table} GROUP BY {target_groupby})"
+        cte_statement = ("WITH {target_alias} AS (SELECT {target_groupby}, "
+                         "COUNT(DISTINCT {target_compare}) AS row_count"
+                         " FROM {target_table} GROUP BY {target_groupby})")
         test_str = cte_statement.format(target_alias=self.table_alias[0],
                                         target_groupby=self.groupby_fields[0],
                                         target_compare=self.comparison_fields[0],
                                         target_table=self.table_names[0])
 
         # Create other CTEs
-        table_cte = ", {alias} AS (SELECT {groupby}, COUNT(DISTINCT {compare})"\
-                    + " AS row_count FROM {table} GROUP BY {groupby})"
+        table_cte = (", {alias} AS (SELECT {groupby}, COUNT(DISTINCT {compare}) "
+                     "AS row_count FROM {table} GROUP BY {groupby})")
         for alias, groupby_field, compare, table in zip(self.table_alias[1:],
                                                         self.groupby_fields[1:],
                                                         self.comparison_fields[1:],
@@ -332,17 +353,17 @@ class SQLTest:
         test_str = ""
 
         # Create target CTE
-        cte_statement = "WITH {target_alias} AS (SELECT {target_groupby}, "\
-                        + "SUM({target_compare}) AS row_count"\
-                        + " FROM {target_table} GROUP BY {target_groupby})"
+        cte_statement = ("WITH {target_alias} AS (SELECT {target_groupby}, "
+                         "SUM({target_compare}) AS row_count "
+                         "FROM {target_table} GROUP BY {target_groupby})")
         test_str = cte_statement.format(target_alias=self.table_alias[0],
                                         target_groupby=self.groupby_fields[0],
                                         target_compare=self.comparison_fields[0],
                                         target_table=self.table_names[0])
 
         # Create other CTEs
-        table_cte = ", {alias} AS (SELECT {groupby}, SUM({compare}) AS row_count"\
-                    + " FROM {table} GROUP BY {groupby})"
+        table_cte = (", {alias} AS (SELECT {groupby}, SUM({compare}) AS row_count"
+                     " FROM {table} GROUP BY {groupby})")
         for alias, groupby_field, compare, table in zip(self.table_alias[1:],
                                                         self.groupby_fields[1:],
                                                         self.comparison_fields[1:],
@@ -359,17 +380,17 @@ class SQLTest:
         Create SQL query strings to obtain all values from two tables from
         stored comparison and groupby fields.
         """
-        target_str = "SELECT {target_groupby}, {target_compare} FROM {target_table}"\
-                     .format(target_groupby=self.groupby_fields[0],
-                             target_compare=self.comparison_fields[0],
-                             target_table=self.table_names[0])
+        target_str = ("SELECT {target_groupby}, {target_compare} FROM {target_table}"
+                      .format(target_groupby=self.groupby_fields[0],
+                              target_compare=self.comparison_fields[0],
+                              target_table=self.table_names[0]))
 
-        source_str = ("SELECT {source_groupby}, {source_compare} AS "
-                      "{target_compare} FROM {source_table}")\
-                     .format(source_groupby=self.groupby_fields[1],
-                             source_compare=self.comparison_fields[1],
-                             target_compare=self.comparison_fields[0],
-                             source_table=self.table_names[1])
+        source_str = (("SELECT {source_groupby}, {source_compare} AS "
+                       "{target_compare} FROM {source_table}")
+                      .format(source_groupby=self.groupby_fields[1],
+                              source_compare=self.comparison_fields[1],
+                              target_compare=self.comparison_fields[0],
+                              source_table=self.table_names[1]))
 
         self._test_str = (target_str, source_str)
 
@@ -414,10 +435,10 @@ class SQLTest:
 
         # Create SELECT statement
         if self.test_type in ('count', 'high_distinct', 'numeric'):
-            initial_select_state = (" SELECT {target_alias}.{target_groupby}, "
-                                    "{target_alias}.row_count AS {target_alias}_count")\
-                                   .format(target_alias=self.table_alias[0],
-                                           target_groupby=self.groupby_fields[0])
+            initial_select_state = ((" SELECT {target_alias}.{target_groupby}, "
+                                     "{target_alias}.row_count AS {target_alias}_count")
+                                    .format(target_alias=self.table_alias[0],
+                                            target_groupby=self.groupby_fields[0]))
 
             join_state = (" JOIN {alias} ON {alias}.{groupby_field} "
                           "= {target_alias}.{target_groupby}")
@@ -427,17 +448,17 @@ class SQLTest:
                                            target_alias=self.table_alias[0],
                                            target_groupby=self.groupby_fields[0])
 
-            order = " ORDER BY {target_alias}.{target_groupby}"\
-                        .format(target_alias=self.table_alias[0],
-                                target_groupby=self.groupby_fields[0])
+            order = (" ORDER BY {target_alias}.{target_groupby}"
+                     .format(target_alias=self.table_alias[0],
+                             target_groupby=self.groupby_fields[0]))
         else:
-            initial_select_state = (" SELECT {target_alias}.{target_groupby}, "
-                                    "{target_alias}.{target_compare} AS"
-                                    " {target_alias}_{target_compare}, "
-                                    "{target_alias}.row_count AS {target_alias}_count")\
-                                   .format(target_alias=self.table_alias[0],
-                                           target_compare=self.comparison_fields[0],
-                                           target_groupby=self.groupby_fields[0])
+            initial_select_state = ((" SELECT {target_alias}.{target_groupby}, "
+                                     "{target_alias}.{target_compare} AS"
+                                     " {target_alias}_{target_compare}, "
+                                     "{target_alias}.row_count AS {target_alias}_count")
+                                    .format(target_alias=self.table_alias[0],
+                                            target_compare=self.comparison_fields[0],
+                                            target_groupby=self.groupby_fields[0]))
 
             join_state = (" LEFT JOIN {alias} ON {alias}.{groupby_field} = "
                           "{target_alias}.{target_groupby}"
@@ -452,11 +473,11 @@ class SQLTest:
                                            target_groupby=self.groupby_fields[0],
                                            target_compare=self.comparison_fields[0])
 
-            order = (" ORDER BY {target_alias}.{target_groupby}, "
-                     "{target_alias}.{target_compare}")\
-                    .format(target_alias=self.table_alias[0],
-                            target_groupby=self.groupby_fields[0],
-                            target_compare=self.comparison_fields[0])
+            order = ((" ORDER BY {target_alias}.{target_groupby}, "
+                      "{target_alias}.{target_compare}")
+                     .format(target_alias=self.table_alias[0],
+                             target_groupby=self.groupby_fields[0],
+                             target_compare=self.comparison_fields[0]))
 
         table_select = ", {alias}.row_count AS {alias}_count"
         for alias in self.table_alias[1:]:
@@ -466,13 +487,11 @@ class SQLTest:
         initial_from_state = " FROM {target_alias}".format(target_alias=self.table_alias[0])
 
         # Create test string
-        test_str += initial_select_state + selects + initial_from_state \
-                    + joins + order
+        test_str += initial_select_state + selects + initial_from_state + joins + order
         self._test_str = test_str
 
     def customize_test_string(self, insert_type: str, add_string: str, table_alias: str,
-                              format_values: Optional[Mapping[str, Any]] = None) \
-                              -> NoReturn:
+                              format_values: Optional[Mapping[str, Any]] = None) -> NoReturn:
         """
         Customize CTEs in query string created by create_test_string.
 
@@ -563,7 +582,8 @@ class SQLTest:
                               differences in values will be flagged for priority review.
         """
         assessment = None
-        if self._results[assess_col].isnull().sum() == self._results.shape[0]:
+        if (self._results[assess_col].isnull().sum() \
+            or (self._results[assess_col] == 'Unknown').sum()) == self._results.shape[0]:
             assessment = 'MISSING VALUE for ' + self.comparison_fields[0] + '_' + table_alias
             print(assessment)
             return assessment
@@ -621,26 +641,28 @@ class SQLTest:
         self._results = self.gather_data(test_string=test_string)
         target_col = self.table_alias[0] + '_count'
         test_field = self.comparison_fields[0]
-        for col in self.table_alias[1:]:
+        for alias in self.table_alias[1:]:
             try:
-                col_name = col + '_count'
+                col_name = alias + '_count'
                 # Get difference in counts
-                compare_col = self.table_alias[0] + '_minus_' + col
+                compare_col = self.table_alias[0] + '_minus_' + alias
                 self._results[compare_col] = self._results[target_col] - self._results[col_name]
 
                 # Get perc diff
-                perc_col = 'perc_diff_' + col
+                perc_col = 'perc_diff_' + alias
                 self._results[perc_col] = \
-                ((self._results[target_col] - self._results[col_name])\
-                /self._results[target_col] * 100).astype(float).round(2)
+                (((self._results[target_col] - self._results[col_name])\
+                /self._results[target_col] * 100)
+                 .astype(float)
+                 .round(2))
                 # Manage missing high_distinct fields
                 if self.test_type == 'high_distinct':
                     self._results.loc[self._results[perc_col] == 100, perc_col] = np.nan
                 # Assess perc diff
-                assessment = self._assess_priority_review(col, perc_col,
+                assessment = self._assess_priority_review(alias, perc_col,
                                                           review_threshold=review_threshold)
                 if assessment:
-                    self._priority_review[test_field + '_' + col] = assessment
+                    self._priority_review[test_field + '_' + alias] = assessment
                 # Assign to summary
                 summary_field = self.groupby_fields[0]
                 if self._summary.empty:
@@ -649,26 +671,24 @@ class SQLTest:
                                        .median().reset_index()
                     else:
                         self._summary = self._results[[summary_field, perc_col]].copy()
-                    self._summary.rename(columns={perc_col: '{}_{} [{}]'.format(test_field,
-                                                                                col,
-                                                                                self.test_type)},
-                                         inplace=True)
+                    self._summary.rename(
+                        columns={perc_col: '{}_{} [{}]'.format(test_field, alias, self.test_type)},
+                        inplace=True
+                        )
                 else:
                     if self.test_type == 'low_distinct':
                         summary_col = self._results.groupby(summary_field)[perc_col]\
                                       .median().reset_index()
                     else:
                         summary_col = self._results[[summary_field, perc_col]].copy()
-                    summary_col.rename(columns={perc_col: '{}_{} [{}]'.format(test_field,
-                                                                              col,
-                                                                              self.test_type)},
-                                       inplace=True)
-                    self._summary = self._summary.merge(summary_col,
-                                                        how='outer',
-                                                        on=summary_field)
+                    summary_col.rename(
+                        columns={perc_col: '{}_{} [{}]'.format(test_field, alias, self.test_type)},
+                        inplace=True
+                        )
+                    self._summary = self._summary.merge(summary_col, how='outer', on=summary_field)
             except Exception as e:
                 print('EXCEPTION:', e)
-                self._exceptions[test_field + '_' + col] = e
+                self._exceptions[test_field + '_' + alias] = e
 
         # Add date
         if 'date' not in self._results.columns:
@@ -735,7 +755,7 @@ class SQLTest:
                 self._results[self.groupby_fields[0]] = \
                 self._results[self.groupby_fields[0]].dt.date
         self._results.index = self._results[self.groupby_fields[0]]
-        self._results.drop(self.groupby_fields[0], axis=1, inplace=True)
+        self._results = self._results.drop(self.groupby_fields[0], axis=1)
 
         # Set up columns to store lists
         target_in_source_name = table_alias[0] + '_missing_in_' + table_alias[1]
@@ -749,10 +769,10 @@ class SQLTest:
                 is_ind_source = source_df[source_groupby] == ind
                 # Note: Code is brittle and depends on Python version, current = 3.7.3 or lower
                 # Check if the id values are in the other DataFrame
-                target_in_source = target_df.loc[is_ind_target, target_id]\
-                                   .isin(source_df.loc[is_ind_source, source_id])
-                source_in_target = source_df.loc[is_ind_source, source_id]\
-                                   .isin(target_df.loc[is_ind_target, target_id])
+                target_in_source = (target_df.loc[is_ind_target, target_id]
+                                    .isin(source_df.loc[is_ind_source, source_id]))
+                source_in_target = (source_df.loc[is_ind_source, source_id]\
+                                    .isin(target_df.loc[is_ind_target, target_id]))
                 # Collect missing ids
                 missing_target_ids = \
                 target_df.loc[~target_in_source & is_ind_target, target_id].values
@@ -761,15 +781,15 @@ class SQLTest:
                 # Store id values and counts in results
                 if target_in_source_name not in self._results.columns:
                     self._results[target_in_source_name] = np.nan
-                    self._results[target_in_source_name] = self._results[target_in_source_name]\
-                                                           .astype(object)
+                    self._results[target_in_source_name] = (self._results[target_in_source_name]
+                                                            .astype(object))
                 self._results.at[ind, target_in_source_name] = missing_target_ids
                 self._results.at[ind, 'missing_' + table_alias[0] + '_ids'] = \
                 missing_target_ids.shape[0]
                 if source_in_target_name not in self._results.columns:
                     self._results[source_in_target_name] = np.nan
-                    self._results[source_in_target_name] = self._results[source_in_target_name]\
-                                                           .astype(object)
+                    self._results[source_in_target_name] = (self._results[source_in_target_name]
+                                                            .astype(object))
                 self._results.at[ind, source_in_target_name] = missing_source_ids
                 self._results.at[ind, 'missing_' + table_alias[1] + '_ids'] = \
                 missing_source_ids.shape[0]
@@ -785,7 +805,8 @@ class SQLTest:
         return self._results
 
     def summarize_results(self, summary_type: str = 'both', save_type: Union[str, bool] = 'both',
-                          remove_time: bool = True, keyword_dict: Optional[dict] = None) -> P:
+                          remove_time: bool = True, keyword_dict: Optional[dict] = None) \
+                          -> Optional[P]:
         """
         Format data in _summary in DataFrame and image forms.
 
@@ -827,16 +848,13 @@ class SQLTest:
             if isinstance(self._summary.loc[0, summary_field], datetime):
                 self._summary[summary_field] = self._summary[summary_field].dt.date
         self._summary.index = self._summary[summary_field]
-        self._summary.drop(summary_field, axis=1, inplace=True)
-        # Drop rows that were only in "target" table
-        self._summary.dropna(how='all', inplace=True)
-        self._summary.sort_index(inplace=True)
-        # Rearrange to have gropuby_field as columns
-        self._summary = self._summary.transpose()
+        self._summary = (self._summary.drop(summary_field, axis=1)
+                                      .dropna(how='all')
+                                      .sort_index()
+                                      .transpose())
         # Sort names but keep count at top
         self._summary = pd.concat([self._summary.iloc[: len(self.groupby_fields) - 1].sort_index(),
                                    self._summary.iloc[len(self.groupby_fields) - 1:].sort_index()])
-        #self._summary.sort_index(inplace=True)
 
         if save_type in ('data', 'both'):
             self._summary.to_csv(self.save_location + '/' + self._today_date \
@@ -866,6 +884,7 @@ class SQLTest:
 
         if summary_type in ('both', 'data'):
             return self._summary
+        return None
 
 U = TypeVar('U', bound=SQLTest)
 
@@ -878,6 +897,7 @@ def compare_tables(table_names: Sequence[str], table_alias: Sequence[str],
                    save_replace: bool = False,
                    review_threshold: Union[int, float] = 2,
                    low_distinct_thresh: int = 10,
+                   row_limit: int = 500,
                    summ_kwargs: Optional[dict] = None) -> Tuple[P, U]:
     """
     Run data comparison tests between tables.
@@ -929,7 +949,7 @@ def compare_tables(table_names: Sequence[str], table_alias: Sequence[str],
 
     test_fields = [fields[0] for fields in table_fields]
     numeric_fields, high_distinct_fields, low_distinct_fields = \
-    collect_field_type(table_names[0], test_fields, db_server, low_distinct_thresh)
+    collect_field_type(table_names[0], test_fields, db_server, low_distinct_thresh, row_limit)
     for test_groups in (high_distinct_fields, low_distinct_fields, numeric_fields):
         tester.test_type = test_groups.test_type
         for field in test_groups.field_names:
