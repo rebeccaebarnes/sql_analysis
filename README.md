@@ -32,19 +32,19 @@ We could view the tables:
 **rental_view**
 
 <p align="left">
-  <img src="img/rental_view.PNG">
+  <img src="https://raw.githubusercontent.com/rebeccaebarnes/sql_analysis/master/img/rental_view.PNG">
 </p>
 
 **alt_rental_view**
 
 <p align="left">
-  <img src="img/alt_rental_view.PNG">
+  <img src="https://raw.githubusercontent.com/rebeccaebarnes/sql_analysis/master/img/alt_rental_view.PNG">
 </p>
 
 **alt_sim_rental_view**
 
 <p align="left">
-  <img src="img/alt_sim_rental_view.PNG">
+  <img src="https://raw.githubusercontent.com/rebeccaebarnes/sql_analysis/master/img/alt_sim_rental_view.PNG">
 </p>
 
 ### Run Test Battery
@@ -56,26 +56,26 @@ Table information is specified on instantiation and `compare_tables` will create
 
 **Setup Code**
 <p align="center">
-  <img src="img/compare_tables_code.PNG">
+  <img src="https://raw.githubusercontent.com/rebeccaebarnes/sql_analysis/master/img/compare_tables_code.PNG">
 </p>
 
 Activity, exceptions, and fields flagged for priority review are logged during operation.
 
 **Log Print-out**
 <p align="center">
-  <img src="img/log.PNG">
+  <img src="https://raw.githubusercontent.com/rebeccaebarnes/sql_analysis/master/img/log.PNG">
 </p>
 
 **Log Storage**
 <p align="center">
-  <img src="img/log_storage.PNG">
+  <img src="https://raw.githubusercontent.com/rebeccaebarnes/sql_analysis/master/img/log_storage.PNG">
 </p>
 
 A summarized version of results (as a DataFrame or image), indicating the percentage difference between table fields (and the test type used), is also available via the test battery.
 
 **Visual Summary**
 <p align="center">
-  <img src="img/results.png">
+  <img src="https://raw.githubusercontent.com/rebeccaebarnes/sql_analysis/master/img/results.png">
 </p>
 
 ### Confirm Shared IDs
@@ -85,7 +85,7 @@ We can use the .compare_ids method to compare between two tables at a time.
 
 **Results**
 <p align="center">
-  <img src="img/compare_ids.PNG">
+  <img src="https://raw.githubusercontent.com/rebeccaebarnes/sql_analysis/master/img/compare_ids.PNG">
 </p>
 
 ## Setup
