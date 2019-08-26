@@ -320,9 +320,10 @@ class SQLTest:
 
         # Create target CTE
         cte_statement = ("WITH {target_alias} AS (SELECT {target_groupby}, "
-                         "COALESCE(CAST({target_compare} AS varchar), 'Unknown') "
+                         "COALESCE(CAST({target_compare} AS varchar(255)), 'Unknown') "
                          "AS {target_compare}, COUNT(*) AS row_count "
-                         "FROM {target_table} GROUP BY {target_groupby}, {target_compare})")
+                         "FROM {target_table} GROUP BY {target_groupby}, "
+                         "COALESCE(CAST({target_compare} AS varchar(255)), 'Unknown'))")
         test_str = cte_statement.format(target_alias=self.table_alias[0],
                                         target_groupby=self.groupby_fields[0],
                                         target_compare=self.comparison_fields[0],
@@ -330,8 +331,9 @@ class SQLTest:
 
         # Create other CTEs
         table_cte = (", {alias} AS (SELECT {groupby}, "
-                     "COALESCE(CAST({compare} AS varchar), 'Unknown') AS {compare}, "
-                     "COUNT(*) AS row_count FROM {table} GROUP BY {groupby}, {compare})")
+                     "COALESCE(CAST({compare} AS varchar(255)), 'Unknown') AS {compare}, "
+                     "COUNT(*) AS row_count FROM {table} GROUP BY {groupby}, "
+                     "COALESCE(CAST({compare} AS varchar(255)), 'Unknown'))")
         for alias, groupby_field, compare_field, table in zip(self.table_alias[1:],
                                                               self.groupby_fields[1:],
                                                               self.comparison_fields[1:],
