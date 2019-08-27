@@ -5,7 +5,7 @@
 `sql_input_test` tests inputs to the functions and classes of the `sql_analysis` module.
 """
 from typing import Any, NoReturn, Optional, Sequence, Union
-from sql_config import DB_ENG
+from .sql_config import DB_ENG
 
 def test_in_collection(variable: Any,
                        collection: Sequence,

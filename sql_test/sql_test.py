@@ -13,11 +13,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import sql_config as sqlc
-import sql_input_tests as sqlit
+from .sql_config import DB_ENG
+from .sql_input_tests import test_in_collection, test_input_init, test_input_runtest, \
+test_input_ids, test_input_summ, comp_tables_input
 
 
-DB_ENG = sqlc.DB_ENG
 P = TypeVar('P', bound=pd.DataFrame)
 FieldList = namedtuple('FieldList', ['test_type', 'field_names'])
 
@@ -68,7 +68,7 @@ def detect_field_type(table_name: str, field_name: str, engine: str,
         TypeError: If the SQL dialet name is not 'postgresql', 'mysql', 'sqlite',
                    'oracle' or 'mssql'.
     """
-    sqlit.test_in_collection(engine, list(DB_ENG.keys()), 'database engine')
+    test_in_collection(engine, list(DB_ENG.keys()), 'database engine')
     query_str = "SELECT {field_name} FROM {table_name}".format(field_name=field_name,
                                                                table_name=table_name)
 
@@ -155,7 +155,7 @@ def detect_field_names(table_name: str, engine: str) -> Sequence[str]:
     Raises:
         ValueError: If a valid database engine key is not used.
     """
-    sqlit.test_in_collection(engine, list(DB_ENG.keys()), 'database engine')
+    test_in_collection(engine, list(DB_ENG.keys()), 'database engine')
     query_str = "SELECT * FROM {}".format(table_name)
     df = sql_query(query_str, engine)
 
@@ -235,13 +235,13 @@ class SQLTest:
     def __init__(self, table_names: Sequence[str], table_alias: Sequence[str],
                  groupby_fields: Sequence[str], comparison_fields: Sequence[str],
                  db_server: str, test_type: str, save_location: Optional[str] = None) -> NoReturn:
-        sqlit.test_input_init(comparison_fields=comparison_fields,
-                              groupby_fields=groupby_fields,
-                              table_names=table_names,
-                              table_alias=table_alias,
-                              db_server=db_server,
-                              test_type=test_type,
-                              save_location=save_location)
+        test_input_init(comparison_fields=comparison_fields,
+                        groupby_fields=groupby_fields,
+                        table_names=table_names,
+                        table_alias=table_alias,
+                        db_server=db_server,
+                        test_type=test_type,
+                        save_location=save_location)
 
         self.comparison_fields = comparison_fields
         self.groupby_fields = groupby_fields
@@ -271,9 +271,9 @@ class SQLTest:
         """
         for key, value in keyword_dict.items():
             setattr(self, key, value)
-        sqlit.test_input_init(self.table_names, self.table_alias, self.groupby_fields,
-                              self.comparison_fields, self.db_server, self.test_type,
-                              self.save_location)
+        test_input_init(self.table_names, self.table_alias, self.groupby_fields,
+                        self.comparison_fields, self.db_server, self.test_type,
+                        self.save_location)
 
     def clear_private_attr(self) -> NoReturn:
         """
@@ -537,8 +537,8 @@ class SQLTest:
         Raises:
             ValueError: If the value for 'instert_type' or 'table_alias' is not valid.
         """
-        sqlit.test_in_collection(insert_type, ['from', 'group_by'], "'insert_type'")
-        sqlit.test_in_collection(table_alias, self.table_alias, 'table alias')
+        test_in_collection(insert_type, ['from', 'group_by'], "'insert_type'")
+        test_in_collection(table_alias, self.table_alias, 'table alias')
         cte_split = self._test_str.split('), ')
 
         # Find correct cte
@@ -683,7 +683,7 @@ class SQLTest:
         Raises:
             ValueError: If 'test_type' is 'id_check'.
         """
-        sqlit.test_input_runtest(self.test_type)
+        test_input_runtest(self.test_type)
 
         print('Commencing {} test for {}...'.format(self.test_type, self.comparison_fields[0]))
         self._results = self.gather_data(test_string=test_string)
@@ -768,7 +768,7 @@ class SQLTest:
         Raises:
             ValueError: If more than two tables are entered for comparison.
         """
-        sqlit.test_input_ids(table_alias=table_alias, id_fields=id_fields)
+        test_input_ids(table_alias=table_alias, id_fields=id_fields)
 
         # Update for test type
         self.test_type = 'id_check'
@@ -896,9 +896,9 @@ class SQLTest:
         if keyword_dict:
             summary_type, save_type, remove_time = extract_summ_dict(keyword_dict)
 
-        sqlit.test_input_summ(summary_type=summary_type,
-                              save_type=save_type,
-                              save_location=self.save_location)
+        test_input_summ(summary_type=summary_type,
+                        save_type=save_type,
+                        save_location=self.save_location)
 
         # Set index for summary df
         summary_field = self.groupby_fields[0]
@@ -1005,7 +1005,7 @@ def compare_tables(table_names: Sequence[str], table_alias: Sequence[str],
         AttributeError: If 'save_location' is None but summarize_results' 'save_type'
                         has a valid non-False.
     """
-    sqlit.comp_tables_input(save_location=save_location, summ_kwargs=summ_kwargs)
+    comp_tables_input(save_location=save_location, summ_kwargs=summ_kwargs)
 
     tester = SQLTest(comparison_fields=id_fields,
                      groupby_fields=groupby_fields,
