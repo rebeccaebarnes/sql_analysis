@@ -4,6 +4,11 @@ The SQL Test module assists in testing of data between SQL database tables. This
 
 Use examples include comparing data in a view to those in a table derived from a star schema, or comparing results from a table derived from an external source to a table built via ETL.
 
+## Installation
+You can install sql_test directly from [pypi](https://pypi.org/project/sql-test/) using `pip install sql-test`.
+
+Once installed, the files `sql_secrets.py` and `sql_config.py` provide examples of how the SQLAlchemy engines can be configured. These files should be customized for personal use. When customizing the files **do not** rename them or move them. Doing so will cause errors with any future updates.
+
 ## Main Features
 
 - **Class: SQLTest**
@@ -88,8 +93,6 @@ We can use the .compare_ids method to compare between two tables at a time.
   <img src="https://raw.githubusercontent.com/rebeccaebarnes/sql_analysis/master/img/compare_ids.PNG">
 </p>
 
-## Setup
-The files `sql_secrets.py` and `sql_config.py` provide examples of how the SQLAlchemy engines can be configured. These files should be customized for personal use.
 
 ## Dependencies
 This module utilizes:
