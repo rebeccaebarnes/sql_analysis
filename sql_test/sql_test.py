@@ -123,15 +123,19 @@ def collect_field_type(table_name: str, field_names: Sequence[str], engine: str,
     high_distinct = []
     low_distinct = []
 
-    print('Commending field type detection...')
+    print('Commencing field type detection...')
     for field in field_names:
-        test_type = detect_field_type(table_name, field, engine, low_distinct_thresh, row_limit)
-        if test_type == 'numeric':
-            numeric.append(field)
-        if test_type == 'high_distinct':
-            high_distinct.append(field)
-        if test_type == 'low_distinct':
-            low_distinct.append(field)
+        try:
+            test_type = detect_field_type(table_name, field, engine,
+                                          low_distinct_thresh, row_limit)
+            if test_type == 'numeric':
+                numeric.append(field)
+            if test_type == 'high_distinct':
+                high_distinct.append(field)
+            if test_type == 'low_distinct':
+                low_distinct.append(field)
+        except Exception as e:
+            print('Exception for {}: {}'.format(field, e))
 
     # Convert to named tuples
     numeric = FieldList('numeric', numeric)
